@@ -2,17 +2,20 @@ const state = {
   data: null,
   page: "guides",
   id: null,
+
   testId: null,
   questions: [],
   index: 0,
-  answers: {}
+
+  answers: {},
+  selected: {}
 }
 
 /* ================= INIT ================= */
 
 window.addEventListener("DOMContentLoaded", init)
 
-async function init(){
+async function init() {
   bind()
   await load()
   route()
@@ -20,54 +23,60 @@ async function init(){
 
 /* ================= EVENTS ================= */
 
-function bind(){
+function bind() {
   document.addEventListener("click", onClick)
   document.addEventListener("input", onInput)
   window.addEventListener("popstate", route)
 }
 
-function onClick(e){
+function onClick(e) {
   const t = e.target
 
-  if(t.dataset.nav) go(t.dataset.nav)
-  if(t.dataset.guide) go("guide", t.dataset.guide)
-  if(t.dataset.test) startTest(t.dataset.test)
+  if (t.dataset.nav) go(t.dataset.nav)
+  if (t.dataset.guide) go("guide", t.dataset.guide)
+  if (t.dataset.test) startTest(t.dataset.test)
 
-  if(t.id === "next") next()
-  if(t.id === "prev") prev()
+  if (t.id === "next") next()
+  if (t.id === "prev") prev()
 
-  if(t.dataset.answer){
+  if (t.dataset.answer) {
     state.answers[state.index] = t.dataset.answer
+    state.selected[state.index] = t.dataset.answer
+    renderTest()
   }
 }
 
-function onInput(e){
-  if(e.target.id === "search"){
+function onInput(e) {
+  if (e.target.id === "search") {
     search(e.target.value)
   }
 }
 
 /* ================= ROUTER ================= */
 
-function go(page,id=null){
+function go(page, id = null) {
   history.pushState({}, "", id ? `?page=${page}&id=${id}` : `?page=${page}`)
+
   state.page = page
   state.id = id
+
   render()
 }
 
-function route(){
+function route() {
   const p = new URLSearchParams(location.search)
+
   state.page = p.get("page") || "guides"
   state.id = p.get("id")
+
   render()
 }
 
-/* ================= DATA ================= */
+/* ================= LOAD DATA ================= */
 
-async function load(){
-  const g = await fetch("guide.xlsx").then(r=>r.arrayBuffer())
-  const t = await fetch("tests.xlsx").then(r=>r.arrayBuffer())
+async function load() {
+  const g = await fetch("guide.xlsx").then(r => r.arrayBuffer())
+  const t = await fetch("tests.xlsx").then(r => r.arrayBuffer())
 
   const wb1 = XLSX.read(g)
   const wb2 = XLSX.read(t)
@@ -82,27 +91,27 @@ async function load(){
 
 /* ================= RENDER ================= */
 
-function render(){
-  if(!state.data) return
+function render() {
+  if (!state.data) return
 
-  if(state.page === "guides") return renderGuides()
-  if(state.page === "guide") return renderGuide()
-  if(state.page === "tests") return renderTests()
-  if(state.page === "test") return renderTest()
-  if(state.page === "result") return result()
+  if (state.page === "guides") return renderGuides()
+  if (state.page === "guide") return renderGuide()
+  if (state.page === "tests") return renderTests()
+  if (state.page === "test") return renderTest()
+  if (state.page === "result") return renderResult()
 }
 
 /* ================= MOUNT ================= */
 
-function mount(html){
+function mount(html) {
   document.getElementById("app").innerHTML = html
 }
 
 /* ================= GUIDES ================= */
 
-function renderGuides(){
+function renderGuides() {
   mount(`
-    ${state.data.guides.map(g=>`
+    ${state.data.guides.map(g => `
       <div class="card" data-guide="${g.id}">
         ${g["Название справочника"]}
       </div>
@@ -112,13 +121,13 @@ function renderGuides(){
 
 /* ================= GUIDE ================= */
 
-function renderGuide(){
+function renderGuide() {
   const items = state.data.sections.filter(
     s => String(s["id справочника"]) === String(state.id)
   )
 
   mount(`
-    ${items.map(s=>`
+    ${items.map(s => `
       <div class="card">
         <b>${s["название раздела"]}</b><br><br>
         ${s["текст раздела"] || ""}
@@ -127,11 +136,11 @@ function renderGuide(){
   `)
 }
 
-/* ================= TESTS ================= */
+/* ================= TEST LIST ================= */
 
-function renderTests(){
+function renderTests() {
   mount(`
-    ${state.data.tests.map(t=>`
+    ${state.data.tests.map(t => `
       <div class="card" data-test="${t.id}">
         ${t["название теста"]}
       </div>
@@ -139,12 +148,13 @@ function renderTests(){
   `)
 }
 
-/* ================= TEST ================= */
+/* ================= TEST ENGINE ================= */
 
-function startTest(id){
+function startTest(id) {
   state.testId = id
   state.index = 0
   state.answers = {}
+  state.selected = {}
 
   state.questions = state.data.questions.filter(
     q => String(q["id теста"]) === String(id)
@@ -153,9 +163,9 @@ function startTest(id){
   go("test", id)
 }
 
-function renderTest(){
+function renderTest() {
   const q = state.questions[state.index]
-  if(!q) return go("result")
+  if (!q) return go("result")
 
   const answers = [
     q["ответ 1"],
@@ -164,9 +174,9 @@ function renderTest(){
     q["ответ 4"],
     q["ответ 5"],
     q["ответ 6"]
-  ].filter(Boolean).sort(()=>Math.random()-0.5)
+  ].filter(Boolean).sort(() => Math.random() - 0.5)
 
-  const progress = (state.index/state.questions.length)*100
+  const progress = (state.index / state.questions.length) * 100
 
   mount(`
     <div class="progress"><div style="width:${progress}%"></div></div>
@@ -174,27 +184,35 @@ function renderTest(){
     <div class="card">
       <b>${q["вопрос"]}</b><br><br>
 
-      ${answers.map(a=>`
-        <button class="answer" data-answer="${a}">${a}</button>
+      ${answers.map(a => `
+        <button class="answer ${
+          state.selected[state.index] === a ? "active" : ""
+        }" data-answer="${a}">
+          ${a}
+        </button>
       `).join("")}
 
       <br>
 
-      <button id="prev">Назад</button>
+      ${state.index > 0 ? `<button id="prev">Назад</button>` : ""}
       <button id="next">Далее</button>
     </div>
   `)
 }
 
-function next(){
-  if(state.index < state.questions.length-1){
+/* ================= NAV TEST ================= */
+
+function next() {
+  if (state.index < state.questions.length - 1) {
     state.index++
     renderTest()
-  } else go("result")
+  } else {
+    go("result")
+  }
 }
 
-function prev(){
-  if(state.index>0){
+function prev() {
+  if (state.index > 0) {
     state.index--
     renderTest()
   }
@@ -202,16 +220,17 @@ function prev(){
 
 /* ================= RESULT ================= */
 
-function result(){
+function renderResult() {
   let correct = 0
 
-  state.questions.forEach((q,i)=>{
-    const u = (state.answers[i]||"").toLowerCase().trim()
-    const r = (q["ответ 1"]||"").toLowerCase().trim()
-    if(u===r) correct++
+  state.questions.forEach((q, i) => {
+    const u = (state.answers[i] || "").toString().toLowerCase().trim()
+    const r = (q["ответ 1"] || "").toString().toLowerCase().trim()
+
+    if (u && r && u === r) correct++
   })
 
-  const percent = Math.round(correct/state.questions.length*100)
+  const percent = Math.round((correct / state.questions.length) * 100)
 
   mount(`
     <div class="card">
@@ -223,17 +242,17 @@ function result(){
 
 /* ================= SEARCH ================= */
 
-function search(v){
-  if(!v) return render()
+function search(v) {
+  if (!v) return render()
 
   const q = v.toLowerCase()
 
   const res = state.data.sections.filter(
-    s => (s["название раздела"]||"").toLowerCase().includes(q)
+    s => (s["название раздела"] || "").toLowerCase().includes(q)
   )
 
   mount(`
-    ${res.map(s=>`
+    ${res.map(s => `
       <div class="card">${s["название раздела"]}</div>
     `).join("")}
   `)
@@ -241,6 +260,6 @@ function search(v){
 
 /* ================= SW ================= */
 
-if("serviceWorker" in navigator){
+if ("serviceWorker" in navigator) {
   navigator.serviceWorker.register("sw.js")
 }

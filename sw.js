@@ -1,6 +1,6 @@
 self.addEventListener("install", e=>{
   e.waitUntil(
-    caches.open("v12").then(c=>{
+    caches.open("v13").then(c=>{
       return c.addAll([
         "./",
         "./index.html",
