@@ -18,7 +18,7 @@ function shuffle(arr) {
 }
 
 function prepareQuestions(testId) {
-    return state.questions.filter(q => q.test_id === testId).map(q => {
+    return state.questions.filter(q => String(q.test_id) === String(testId)).map(q => {
         const answers = [];
         for (let i=1; i<=6; i++) if (q[`answer${i}`]) answers.push(q[`answer${i}`].trim());
         return { ...q, shuffledAnswers: q.text_answer ? [] : shuffle(answers) };
@@ -43,7 +43,7 @@ export function renderTestsList() {
 }
 
 export function startTest(testId) {
-    const test = state.tests.find(t => t.id === testId);
+    const test = state.tests.find(t => String(t.id) === String(testId));
     if (!test) return navigateTo('tests');
     testState = {
         questions: prepareQuestions(testId),

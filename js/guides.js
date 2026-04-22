@@ -21,7 +21,7 @@ function renderSection(section) {
             ${images.length ? `
                 <div class="media-section"><div class="media-title">Изображения</div>
                     <div class="images-grid">
-                        ${images.map(img => `<img src="${escapeHtml(img)}" class="section-image" loading="lazy" onerror="this.parentElement.innerHTML='<div class=\\'offline-placeholder\\'>Не удалось загрузить</div>'">`).join('')}
+                        ${images.map(img => `<img src="${escapeHtml(img)}" class="section-image" loading="lazy" onerror="if(this.parentElement) this.parentElement.innerHTML='<div class=\\'offline-placeholder\\'>Не удалось загрузить</div>'">`).join('')}
                     </div>
                 </div>` : ''}
             ${files.length ? `
