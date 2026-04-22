@@ -86,8 +86,8 @@
     // Инициализация
     async function init() {
         setupEventListeners();
-        await loadData();
-        handleRouting();
+        await loadData();           // дожидаемся загрузки данных
+        handleRouting();            // только потом роутинг
         window.addEventListener('popstate', handleRouting);
     }
 
@@ -131,6 +131,9 @@
             state.dataLoaded = true;
             elements.searchInput.disabled = false;
             hideLoader();
+            
+            // Принудительно рендерим текущую страницу после загрузки
+            handleRouting();
         } catch (error) {
             console.error('Ошибка загрузки данных:', error);
             showError('Не удалось загрузить данные. Проверьте наличие файлов guide.xlsx и tests.xlsx');
