@@ -2,45 +2,85 @@
 
 const state = {
   data: null,
-  currentTestId: null,
+  page: 'home',
+  id: null,
+  testId: null,
   questions: [],
-  answers: {},
-  index: 0
+  index: 0,
+  answers: {}
 }
 
-let installPrompt = null
+/* ===================== INIT ===================== */
 
-/* ===================== PWA INSTALL ===================== */
+window.addEventListener('DOMContentLoaded', init)
 
-window.addEventListener('beforeinstallprompt', (e) => {
-  e.preventDefault()
-  installPrompt = e
+async function init() {
+  bindEvents()
+  await loadData()
+  router()
+}
 
-  const banner = document.getElementById('installBanner')
-  if (banner && !localStorage.getItem('installed')) {
-    banner.classList.remove('hidden')
+/* ===================== EVENTS ===================== */
+
+function bindEvents() {
+  document.addEventListener('click', handleClick)
+  document.addEventListener('input', handleInput)
+  window.addEventListener('popstate', router)
+}
+
+function handleClick(e) {
+  const t = e.target
+
+  if (t.dataset.page) {
+    go(t.dataset.page)
   }
-})
 
-document.addEventListener('click', (e) => {
-  if (e.target.id === 'installBtn') {
-    if (!installPrompt) return
-    installPrompt.prompt()
-    installPrompt.userChoice.then(() => {
-      localStorage.setItem('installed', '1')
-    })
+  if (t.dataset.guide) {
+    go('guide', t.dataset.guide)
   }
-})
 
-/* ===================== LOAD EXCEL ===================== */
+  if (t.dataset.test) {
+    startTest(t.dataset.test)
+  }
 
-async function loadExcel() {
+  if (t.id === 'nextBtn') nextQuestion()
+  if (t.id === 'prevBtn') prevQuestion()
+}
+
+/* ===================== INPUT ===================== */
+
+function handleInput(e) {
+  if (e.target.id === 'searchInput') {
+    search(e.target.value)
+  }
+}
+
+/* ===================== ROUTER ===================== */
+
+function go(page, id = null) {
+  const url = id ? `?page=${page}&id=${id}` : `?page=${page}`
+  history.pushState({}, '', url)
+  router()
+}
+
+function router() {
+  const p = new URLSearchParams(location.search)
+
+  state.page = p.get('page') || 'home'
+  state.id = p.get('id')
+
+  render()
+}
+
+/* ===================== DATA ===================== */
+
+async function loadData() {
   try {
-    const guideBuf = await fetch('guide.xlsx').then(r => r.arrayBuffer())
-    const testBuf = await fetch('tests.xlsx').then(r => r.arrayBuffer())
+    const g = await fetch('guide.xlsx').then(r => r.arrayBuffer())
+    const t = await fetch('tests.xlsx').then(r => r.arrayBuffer())
 
-    const wb1 = XLSX.read(guideBuf)
-    const wb2 = XLSX.read(testBuf)
+    const wb1 = XLSX.read(g)
+    const wb2 = XLSX.read(t)
 
     state.data = {
       guides: XLSX.utils.sheet_to_json(wb1.Sheets[wb1.SheetNames[0]]),
@@ -50,30 +90,9 @@ async function loadExcel() {
     }
 
   } catch (e) {
-    console.error('Excel error:', e)
-
-    const app = document.getElementById('app')
-    if (app) {
-      app.innerHTML = `<div class="card">Ошибка загрузки данных</div>`
-    }
+    console.error(e)
+    mount(`<div class="card">Ошибка загрузки данных</div>`)
   }
-}
-
-/* ===================== TEXT FORMAT ===================== */
-
-function formatText(t = "") {
-  return t
-    .replace(/<q>(.*?)<\/q>/g, '<div class="quote">$1</div>')
-    .replace(/<note>(.*?)<\/note>/g, '<div class="note">$1</div>')
-    .replace(/<warn>(.*?)<\/warn>/g, '<div class="warn">$1</div>')
-}
-
-/* ===================== ROUTER ===================== */
-
-function go(page, id) {
-  const url = id ? `?page=${page}&id=${id}` : `?page=${page}`
-  history.pushState({}, '', url)
-  render()
 }
 
 /* ===================== RENDER ===================== */
@@ -81,66 +100,78 @@ function go(page, id) {
 function render() {
   if (!state.data) return
 
-  const p = new URLSearchParams(location.search)
-  const page = p.get('page') || 'home'
-  const id = p.get('id')
+  switch (state.page) {
+    case 'home':
+      return mount(`<div class="card">Отдел знаний</div>`)
 
-  const app = document.getElementById('app')
-  if (!app) return
+    case 'guides':
+      return renderGuides()
 
-  app.innerHTML = ''
+    case 'guide':
+      return renderGuide()
 
-  /* HOME */
-  if (page === 'home') {
-    app.innerHTML = `<div class="card">Отдел знаний</div>`
+    case 'tests':
+      return renderTests()
+
+    case 'test':
+      return renderTest()
+
+    case 'result':
+      return renderResult()
   }
-
-  /* GUIDES */
-  if (page === 'guides') {
-    state.data.guides.forEach(g => {
-      app.innerHTML += `
-        <div class="card" data-guide="${g.id}">
-          ${g['Название справочника']}
-        </div>
-      `
-    })
-  }
-
-  /* GUIDE */
-  if (page === 'guide') {
-    state.data.sections
-      .filter(s => String(s['id справочника']) === String(id))
-      .forEach(s => {
-        app.innerHTML += `
-          <div class="card">
-            <h3>${s['название раздела']}</h3>
-            ${formatText(s['текст раздела'] || '')}
-          </div>
-        `
-      })
-  }
-
-  /* TESTS */
-  if (page === 'tests') {
-    state.data.tests.forEach(t => {
-      app.innerHTML += `
-        <div class="card" data-test="${t.id}">
-          ${t['название теста']}
-        </div>
-      `
-    })
-  }
-
-  if (page === 'test') renderTest()
-  if (page === 'result') renderResult()
 }
 
-/* ===================== TEST ===================== */
+function mount(html) {
+  const app = document.getElementById('app')
+  if (!app) return
+  app.innerHTML = html
+}
+
+/* ===================== GUIDES ===================== */
+
+function renderGuides() {
+  mount(`
+    ${state.data.guides.map(g => `
+      <div class="card" data-guide="${g.id}">
+        ${g['Название справочника']}
+      </div>
+    `).join('')}
+  `)
+}
+
+function renderGuide() {
+  const items = state.data.sections.filter(
+    s => String(s['id справочника']) === String(state.id)
+  )
+
+  mount(`
+    ${items.map(s => `
+      <div class="card">
+        <h3>${s['название раздела']}</h3>
+        ${format(s['текст раздела'] || '')}
+      </div>
+    `).join('')}
+  `)
+}
+
+/* ===================== TESTS ===================== */
+
+function renderTests() {
+  mount(`
+    ${state.data.tests.map(t => `
+      <div class="card" data-test="${t.id}">
+        ${t['название теста']}
+      </div>
+    `).join('')}
+  `)
+}
+
+/* ===================== TEST ENGINE ===================== */
 
 function startTest(id) {
-  state.currentTestId = id
-  state.answers = {}
+  state.testId = id
   state.index = 0
+  state.answers = {}
 
   state.questions = state.data.questions.filter(
     q => String(q['id теста']) === String(id)
@@ -151,12 +182,8 @@ function startTest(id) {
 
 function renderTest() {
   const q = state.questions[state.index]
-  const app = document.getElementById('app')
 
-  if (!q) {
-    go('result')
-    return
-  }
+  if (!q) return go('result')
 
   let answers = [
     q['ответ 1'],
@@ -169,45 +196,35 @@ function renderTest() {
 
   answers.sort(() => Math.random() - 0.5)
 
-  const progress = (state.index / state.questions.length) * 100
-
-  app.innerHTML = `
-    <div class="progress">
-      <div style="width:${progress}%"></div>
-    </div>
-
+  mount(`
     <div class="card">
       <h3>${q['вопрос']}</h3>
 
       ${answers.map(a => `
-        <button onclick="selectAnswer('${String(a).replace(/'/g,"\\'")}')">
-          ${a}
-        </button>
+        <button data-answer="${a}">${a}</button>
       `).join('')}
 
       ${q['текстовый ответ'] ? `
-        <input placeholder="Введите ответ" oninput="textAnswer(this.value)">
+        <input id="textAnswer" placeholder="Ответ">
       ` : ''}
 
       <br><br>
 
-      <button onclick="prev()">Назад</button>
-      <button onclick="next()">Далее</button>
+      <button id="prevBtn">Назад</button>
+      <button id="nextBtn">Далее</button>
     </div>
-  `
+  `)
 }
 
 /* ===================== ANSWERS ===================== */
 
-function selectAnswer(v) {
-  state.answers[state.index] = v
-}
+document.addEventListener('click', (e) => {
+  if (e.target.dataset.answer) {
+    state.answers[state.index] = e.target.dataset.answer
+  }
+})
 
-function textAnswer(v) {
-  state.answers[state.index] = v
-}
-
-function next() {
+function nextQuestion() {
   if (state.index < state.questions.length - 1) {
     state.index++
     renderTest()
@@ -216,7 +233,7 @@ function next() {
   }
 }
 
-function prev() {
+function prevQuestion() {
   if (state.index > 0) {
     state.index--
     renderTest()
@@ -229,63 +246,49 @@ function renderResult() {
   let correct = 0
 
   state.questions.forEach((q, i) => {
-    const user = (state.answers[i] || '').toLowerCase().trim()
-    const right = (q['ответ 1'] || '').toLowerCase().trim()
-
-    if (user === right) correct++
+    const u = (state.answers[i] || '').toLowerCase().trim()
+    const r = (q['ответ 1'] || '').toLowerCase().trim()
+    if (u === r) correct++
   })
 
   const percent = Math.round((correct / state.questions.length) * 100)
 
-  document.getElementById('app').innerHTML = `
+  mount(`
     <div class="card">
       <h2>Результат: ${percent}%</h2>
-      <button onclick="go('tests')">Назад к тестам</button>
+      <button data-page="tests">К тестам</button>
     </div>
-  `
+  `)
 }
 
-/* ===================== SEARCH (FIXED) ===================== */
+/* ===================== SEARCH ===================== */
 
-document.addEventListener('input', (e) => {
-  if (e.target.id === 'searchInput') {
-    search(e.target.value)
-  }
-})
+function search(value) {
+  if (!value) return render()
 
-function search(v) {
-  if (!state.data) return
-  if (!v) return render()
+  const v = value.toLowerCase()
 
-  const app = document.getElementById('app')
-  const q = v.toLowerCase()
+  const filtered = state.data.sections.filter(s =>
+    (s['название раздела'] || '').toLowerCase().includes(v)
+  )
 
-  app.innerHTML = ''
-
-  state.data.sections
-    .filter(s => (s['название раздела'] || '').toLowerCase().includes(q))
-    .forEach(s => {
-      app.innerHTML += `
-        <div class="card">${s['название раздела']}</div>
-      `
-    })
+  mount(`
+    ${filtered.map(s => `
+      <div class="card">${s['название раздела']}</div>
+    `).join('')}
+  `)
 }
 
-/* ===================== EVENTS ===================== */
+/* ===================== FORMAT ===================== */
 
-document.addEventListener('click', (e) => {
-  if (e.target.dataset.guide) go('guide', e.target.dataset.guide)
-  if (e.target.dataset.test) startTest(e.target.dataset.test)
-})
+function format(t = '') {
+  return t
+    .replace(/<q>(.*?)<\/q>/g, `<div class="quote">$1</div>`)
+    .replace(/<note>(.*?)<\/note>/g, `<div class="note">$1</div>`)
+    .replace(/<warn>(.*?)<\/warn>/g, `<div class="warn">$1</div>`)
+}
 
-/* ===================== INIT ===================== */
-
-(async function init() {
-  await loadExcel()
-  render()
-})()
-
-/* ===================== SERVICE WORKER ===================== */
+/* ===================== SW ===================== */
 
 if ('serviceWorker' in navigator) {
   navigator.serviceWorker.register('sw.js')
