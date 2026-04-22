@@ -1,5 +1,5 @@
 // sw.js
-const CACHE_NAME = 'knowledge-base-v4';
+const CACHE_NAME = 'knowledge-base-v5';
 const STATIC_ASSETS = [
     './',
     './index.html',

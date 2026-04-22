@@ -19,6 +19,14 @@
         isOnline: navigator.onLine
     };
 
+    function formatExcelDate(excelDate) {
+        if (!excelDate) return '';
+        if (typeof excelDate === 'string') return excelDate;
+        
+        const date = new Date((excelDate - 25569) * 86400 * 1000);
+        return date.toLocaleDateString('ru-RU');
+    }
+
     // DOM элементы
     const elements = {
         header: document.getElementById('appHeader'),
@@ -167,7 +175,7 @@
         const url = new URL(window.location);
         url.searchParams.set('page', page);
         if (id) {
-            url.searchParams.set('id', id);
+            url.searchParams.set('id', String(id));
         } else {
             url.searchParams.delete('id');
         }
@@ -197,9 +205,15 @@
         state.currentPage = page;
         updateActiveTab(page);
         
+        // Очищаем таймер при любом переходе
+        if (timerInterval) {
+            clearInterval(timerInterval);
+            timerInterval = null;
+        }
+        
         if (page === 'guides') {
             if (id) {
-                state.currentGuideId = id;
+                state.currentGuideId = String(id);
                 renderSections();
             } else {
                 state.currentGuideId = null;
@@ -207,8 +221,8 @@
             }
         } else if (page === 'tests') {
             if (id) {
-                state.currentTestId = id;
-                startTest(id);
+                state.currentTestId = String(id);
+                startTest(String(id));
             } else {
                 state.currentTestId = null;
                 renderTestsList();
@@ -234,7 +248,7 @@
                         <h3 class="card-title">${escapeHtml(guide.title || 'Без названия')}</h3>
                         <div class="card-meta">
                             ${guide.author ? `<span>${escapeHtml(guide.author)}</span>` : ''}
-                            ${guide.date ? `<span>${escapeHtml(guide.date)}</span>` : ''}
+                            ${guide.date ? `<span>${formatExcelDate(guide.date)}</span>` : ''}
                         </div>
                     </div>
                 </div>
@@ -283,53 +297,53 @@
     }
 
     function renderSection(section) {
-    const images = parseMediaList(section.images);
-    const files = parseMediaList(section.files);
-    const videos = parseMediaList(section.videos);
-    
-    return `
-        <div class="section-card">
-            <h3 class="section-title">${escapeHtml(section.title || 'Без названия')}</h3>
-            <div class="section-content">${processContent(section.content || '')}</div>
-            
-            ${images.length > 0 ? `
-                <div class="media-section">
-                    <div class="media-title">Изображения</div>
-                    <div class="images-grid">
-                        ${images.map(img => state.isOnline ? 
-                            `<img src="${escapeHtml(img)}" class="section-image" alt="Изображение" loading="lazy" onerror="this.style.display='none'">` :
-                            '<div class="offline-placeholder">Изображение недоступно в офлайн-режиме</div>'
-                        ).join('')}
+        const images = parseMediaList(section.images);
+        const files = parseMediaList(section.files);
+        const videos = parseMediaList(section.videos);
+        
+        return `
+            <div class="section-card">
+                <h3 class="section-title">${escapeHtml(section.title || 'Без названия')}</h3>
+                <div class="section-content">${processContent(section.content || '')}</div>
+                
+                ${images.length > 0 ? `
+                    <div class="media-section">
+                        <div class="media-title">Изображения</div>
+                        <div class="images-grid">
+                            ${images.map(img => state.isOnline ? 
+                                `<img src="${escapeHtml(img)}" class="section-image" alt="Изображение" loading="lazy" onerror="this.style.display='none'">` :
+                                '<div class="offline-placeholder">Изображение недоступно в офлайн-режиме</div>'
+                            ).join('')}
+                        </div>
                     </div>
-                </div>
-            ` : ''}
-            
-            ${files.length > 0 ? `
-                <div class="media-section">
-                    <div class="media-title">Файлы для скачивания</div>
-                    <ul class="files-list">
-                        ${files.map(file => state.isOnline ?
-                            `<li class="file-item"><a href="${escapeHtml(file)}" class="file-link" download>📄 ${getFileName(file)}</a></li>` :
-                            '<li class="file-item"><span class="offline-placeholder" style="display: inline-block; padding: 8px;">Файл недоступен в офлайн-режиме</span></li>'
-                        ).join('')}
-                    </ul>
-                </div>
-            ` : ''}
-            
-            ${videos.length > 0 ? `
-                <div class="media-section">
-                    <div class="media-title">Видео</div>
-                    <ul class="videos-list">
-                        ${videos.map(video => state.isOnline ?
-                            `<li class="video-item"><a href="${escapeHtml(video)}" class="video-link" target="_blank">🎬 ${getFileName(video)}</a></li>` :
-                            '<li class="video-item"><span class="offline-placeholder" style="display: inline-block; padding: 8px;">Видео недоступно в офлайн-режиме</span></li>'
-                        ).join('')}
-                    </ul>
-                </div>
-            ` : ''}
-        </div>
-    `;
-}
+                ` : ''}
+                
+                ${files.length > 0 ? `
+                    <div class="media-section">
+                        <div class="media-title">Файлы для скачивания</div>
+                        <ul class="files-list">
+                            ${files.map(file => state.isOnline ?
+                                `<li class="file-item"><a href="${escapeHtml(file)}" class="file-link" download>📄 ${getFileName(file)}</a></li>` :
+                                '<li class="file-item"><span class="offline-placeholder" style="display: inline-block; padding: 8px;">Файл недоступен в офлайн-режиме</span></li>'
+                            ).join('')}
+                        </ul>
+                    </div>
+                ` : ''}
+                
+                ${videos.length > 0 ? `
+                    <div class="media-section">
+                        <div class="media-title">Видео</div>
+                        <ul class="videos-list">
+                            ${videos.map(video => state.isOnline ?
+                                `<li class="video-item"><a href="${escapeHtml(video)}" class="video-link" target="_blank">🎬 ${getFileName(video)}</a></li>` :
+                                '<li class="video-item"><span class="offline-placeholder" style="display: inline-block; padding: 8px;">Видео недоступно в офлайн-режиме</span></li>'
+                            ).join('')}
+                        </ul>
+                    </div>
+                ` : ''}
+            </div>
+        `;
+    }
 
     function parseMediaList(str) {
         if (!str) return [];
@@ -363,7 +377,7 @@
                         <h3 class="card-title">${escapeHtml(test.title || 'Без названия')}</h3>
                         <div class="card-meta">
                             ${test.author ? `<span>${escapeHtml(test.author)}</span>` : ''}
-                            ${test.date ? `<span>${escapeHtml(test.date)}</span>` : ''}
+                            ${test.date ? `<span>${formatExcelDate(test.date)}</span>` : ''}
                             ${test.time_limit && test.time_limit > 0 ? `<span>⏱ ${test.time_limit} мин</span>` : ''}
                         </div>
                     </div>
@@ -382,29 +396,35 @@
 }
 
     function startTest(testId) {
-        const test = state.tests.find(t => t.id === testId);
-        const questions = state.questions.filter(q => q.test_id === testId);
-        
-        if (!test || questions.length === 0) {
-            navigateTo('tests');
-            return;
-        }
-        
-        state.currentTestId = testId;
-        state.currentQuestionIndex = 0;
-        state.testAnswers = {};
-        state.testStartTime = Date.now();
-        state.testQuestions = questions.map(q => ({
-            ...q,
-            shuffledAnswers: shuffleAnswers(q)
-        }));
-        
-        renderTestQuestion();
-        
-        if (test.time_limit && test.time_limit > 0) {
-            startTimer(test.time_limit * 60);
-        }
+    const test = state.tests.find(t => String(t.id) === String(testId));
+    const questions = state.questions.filter(q => String(q.test_id) === String(testId));
+    
+    if (!test || questions.length === 0) {
+        navigateTo('tests');
+        return;
     }
+    
+    // Очищаем предыдущий таймер
+    if (timerInterval) {
+        clearInterval(timerInterval);
+        timerInterval = null;
+    }
+    
+    state.currentTestId = testId;
+    state.currentQuestionIndex = 0;
+    state.testAnswers = {};
+    state.testStartTime = Date.now();
+    state.testQuestions = questions.map(q => ({
+        ...q,
+        shuffledAnswers: shuffleAnswers(q)
+    }));
+    
+    renderTestQuestion();
+    
+    if (test.time_limit && Number(test.time_limit) > 0) {
+        startTimer(Number(test.time_limit) * 60);
+    }
+}
 
     function shuffleAnswers(question) {
     if (question.text_answer) return [];
@@ -479,7 +499,7 @@
                 
                 <div class="test-header">
                     <span class="test-progress">${escapeHtml(test.title)} — ${progress}</span>
-                    ${test.time_limit && test.time_limit > 0 ? `<span class="timer" id="timerDisplay">${test.time_limit}:00</span>` : ''}
+                    ${test.time_limit && Number(test.time_limit) > 0 ? `<span class="timer" id="timerDisplay">${test.time_limit}:00</span>` : ''}
                 </div>
                 
                 <div class="question-card">
@@ -561,9 +581,9 @@
             showConfirmModal('Завершить тест и посмотреть результат?', () => finishTest(false));
         });
         
-        if (test.time_limit && test.time_limit > 0) {
+        if (test.time_limit && Number(test.time_limit) > 0) {
             const elapsed = Math.floor((Date.now() - state.testStartTime) / 1000);
-            const remaining = test.time_limit * 60 - elapsed;
+            const remaining = Number(test.time_limit) * 60 - elapsed;
             if (remaining > 0) {
                 startTimer(remaining);
             } else {
