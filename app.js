@@ -18,22 +18,22 @@ window.addEventListener("DOMContentLoaded", init)
 
 async function init() {
   bind()
-  await load()
-  route()
+  await loadData()
+  router()
 }
 
 /* ================= EVENTS ================= */
 
 function bind() {
-  document.addEventListener("click", handleClick)
-  document.addEventListener("input", handleInput)
-  window.addEventListener("popstate", route)
+  document.addEventListener("click", onClick)
+  document.addEventListener("input", onInput)
+  window.addEventListener("popstate", router)
 }
 
-function handleClick(e) {
+function onClick(e) {
   const t = e.target
 
-  if (t.dataset.page) go(t.dataset.page)
+  if (t.dataset.nav) go(t.dataset.nav)
   if (t.dataset.guide) go("guide", t.dataset.guide)
   if (t.dataset.test) startTest(t.dataset.test)
 
@@ -43,7 +43,7 @@ function handleClick(e) {
   if (t.id === "prev") prev()
 }
 
-function handleInput(e) {
+function onInput(e) {
   if (e.target.id === "search") {
     search(e.target.value)
   }
@@ -60,7 +60,7 @@ function go(page, id = null) {
   render()
 }
 
-function route() {
+function router() {
   const p = new URLSearchParams(location.search)
 
   state.page = p.get("page") || "guides"
@@ -69,9 +69,9 @@ function route() {
   render()
 }
 
-/* ================= LOAD XLSX ================= */
+/* ================= LOAD ================= */
 
-async function load() {
+async function loadData() {
   const g = await fetch("guide.xlsx").then(r => r.arrayBuffer())
   const t = await fetch("tests.xlsx").then(r => r.arrayBuffer())
 
@@ -116,7 +116,7 @@ function renderGuides() {
   `)
 }
 
-/* ================= GUIDE (FIX: FILES + IMAGES + VIDEO) ================= */
+/* ================= GUIDE ================= */
 
 function renderGuide() {
   const items = state.data.sections.filter(
@@ -126,14 +126,9 @@ function renderGuide() {
   mount(`
     ${items.map(s => {
 
-      const images = (s["ссылки на изображения"] || "")
-        .split(",").filter(Boolean)
-
-      const files = (s["ссылки на скачивания файлов"] || "")
-        .split(",").filter(Boolean)
-
-      const videos = (s["ссылки на видео"] || "")
-        .split(",").filter(Boolean)
+      const images = (s["ссылки на изображения"] || "").split(",").filter(Boolean)
+      const files = (s["ссылки на скачивания файлов"] || "").split(",").filter(Boolean)
+      const videos = (s["ссылки на видео"] || "").split(",").filter(Boolean)
 
       return `
         <div class="card">
@@ -141,18 +136,18 @@ function renderGuide() {
 
           ${s["текст раздела"] || ""}
 
-          ${images.length ? `<hr><b>Изображения:</b><br>` + images.map(i => `<img src="${i}" style="max-width:100%;margin-top:8px;border-radius:10px;">`).join("") : ""}
+          ${images.length ? `<hr><b>Изображения</b><br>` + images.map(i => `<img src="${i}" style="max-width:100%;margin-top:8px;border-radius:10px;">`).join("") : ""}
 
-          ${files.length ? `<hr><b>Файлы:</b><br>` + files.map(f => `<a href="${f}" target="_blank">Скачать</a><br>`).join("") : ""}
+          ${files.length ? `<hr><b>Файлы</b><br>` + files.map(f => `<a href="${f}" target="_blank">Скачать</a><br>`).join("") : ""}
 
-          ${videos.length ? `<hr><b>Видео:</b><br>` + videos.map(v => `<a href="${v}" target="_blank">Смотреть</a><br>`).join("") : ""}
+          ${videos.length ? `<hr><b>Видео</b><br>` + videos.map(v => `<a href="${v}" target="_blank">Смотреть</a><br>`).join("") : ""}
         </div>
       `
     }).join("")}
   `)
 }
 
-/* ================= TEST LIST ================= */
+/* ================= TESTS ================= */
 
 function renderTests() {
   mount(`
@@ -164,7 +159,7 @@ function renderTests() {
   `)
 }
 
-/* ================= TEST ================= */
+/* ================= TEST CORE ================= */
 
 function startTest(id) {
   state.testId = id
@@ -178,8 +173,6 @@ function startTest(id) {
 
   go("test", id)
 }
-
-/* ================= TEST RENDER (FIXED SELECTION) ================= */
 
 function renderTest() {
   const q = state.questions[state.index]
@@ -203,7 +196,7 @@ function renderTest() {
       <b>${q["вопрос"]}</b><br><br>
 
       ${answers.map(a => `
-        <button class="answer ${state.selected[state.index] === a ? "selected" : ""}"
+        <button class="answer ${state.selected[state.index] === a ? "active" : ""}"
                 data-answer="${a}">
           ${a}
         </button>
@@ -217,11 +210,9 @@ function renderTest() {
   `)
 }
 
-/* ================= ANSWER SELECT ================= */
-
-function selectAnswer(value) {
-  state.answers[state.index] = value
-  state.selected[state.index] = value
+function selectAnswer(val) {
+  state.answers[state.index] = val
+  state.selected[state.index] = val
   renderTest()
 }
 
@@ -243,14 +234,14 @@ function prev() {
   }
 }
 
-/* ================= RESULT (FIX SAFE STRING) ================= */
+/* ================= RESULT ================= */
 
 function renderResult() {
   let correct = 0
 
   state.questions.forEach((q, i) => {
-    const u = (state.answers[i] ?? "").toString().toLowerCase().trim()
-    const r = (q["ответ 1"] ?? "").toString().toLowerCase().trim()
+    const u = (state.answers[i] || "").toString().toLowerCase().trim()
+    const r = (q["ответ 1"] || "").toString().toLowerCase().trim()
 
     if (u && r && u === r) correct++
   })
@@ -260,7 +251,7 @@ function renderResult() {
   mount(`
     <div class="card">
       <h2>Результат: ${percent}%</h2>
-      <button data-page="tests">К тестам</button>
+      <button data-nav="tests">К тестам</button>
     </div>
   `)
 }
