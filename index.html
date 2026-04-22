@@ -2,33 +2,33 @@
 <html lang="ru">
 <head>
   <meta charset="UTF-8" />
-  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <meta name="viewport" content="width=device-width,initial-scale=1.0" />
+
   <title>Отдел знаний</title>
 
+  <link rel="stylesheet" href="style.css" />
   <link rel="manifest" href="manifest.json">
-  <meta name="theme-color" content="#ffffff">
 
-  <!-- Favicon (fix 404) -->
+  <!-- favicon без 404 -->
   <link rel="icon" href="data:,">
 
-  <link rel="stylesheet" href="style.css">
   <script src="xlsx.full.min.js"></script>
 </head>
-<body>
-  <div id="installBanner" class="install hidden">
-  Добавить на экран <button id="installBtn">Установить</button>
-</div>
 
-<header>
+<body>
+
+<header class="header">
   <div class="nav">
-    <button data-nav="home">Главная</button>
-    <button data-nav="guides">Справочники</button>
-    <button data-nav="tests">Тесты</button>
+    <button data-page="guides">Справочники</button>
+    <button data-page="tests">Тесты</button>
   </div>
-  <input id="searchInput" placeholder="Поиск по справочникам...">
+
+  <input id="searchInput" placeholder="Поиск..." />
 </header>
-<div id="app" class="container"></div>
+
+<main id="app"></main>
 
 <script src="app.js"></script>
+
 </body>
 </html>
