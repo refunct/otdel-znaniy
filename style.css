@@ -1,4 +1,58 @@
 body{
+  margin:0;
+  font-family:system-ui;
+  background:#f5f6f8;
+  color:#111;
+  overflow-x:hidden;
+}
+
+*,*::before,*::after{box-sizing:border-box}
+
+header{
+  padding:12px 16px;
+  background:#fff;
+  box-shadow:0 2px 6px rgba(0,0,0,.05);
+  position:sticky;
+  top:0;
+  z-index:10;
+}
+
+.nav{
+  display:flex;
+  gap:8px;
+  margin-bottom:10px;
+  flex-wrap:wrap;
+}
+
+.nav button{
+  background:#eee;
+  border:none;
+  padding:8px 10px;
+  border-radius:10px;
+  cursor:pointer;
+}
+
+#searchInput{
+  width:100%;
+  max-width:100%;
+  padding:10px;
+  border-radius:10px;
+  border:1px solid #ddd;
+}
+
+.container{
+  padding:16px;
+  max-width:900px;
+  margin:auto;
+}
+
+.card{
+  background:#fff;
+  border-radius:14px;
+  padding:16px;
+  margin-bottom:14px;
+  box-shadow:0 4px 12px rgba(0,0,0,.06);
+  cursor:pointer;
   transition:.2s;
 }
 
