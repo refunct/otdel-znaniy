@@ -130,8 +130,8 @@ function handleRouting() {
         }
     } else if (page === 'tests') {
         if (id) {
-            state.currentTestId = id;
-            startTest(id);
+            state.currentTestId = String(id);
+            startTest(String(id));
         } else {
             state.currentTestId = null;
             renderTestsList();
