@@ -1,44 +1,27 @@
 body{
+  transition:.2s;
 }
 
-.note{
-  background:#eaf4ff;
-  padding:10px;
-  border-radius:8px;
-}
+.card:hover{transform:translateY(-2px)}
 
-.warn{
-  background:#fff3cd;
-  padding:10px;
-  border-radius:8px;
-}
-
-.install{
+button{
+  padding:10px 14px;
+  border:none;
+  border-radius:10px;
   background:#111;
   color:#fff;
-  padding:10px;
-  text-align:center;
+  cursor:pointer;
 }
 
-.progress{
-  height:6px;
-  background:#eee;
-  border-radius:6px;
-  overflow:hidden;
-  margin-bottom:10px;
-}
+.hidden{display:none}
 
-.progress div{
-  height:100%;
-  background:#111;
-  width:0;
-}
+.quote{border-left:4px solid #111;padding-left:10px;font-style:italic;margin:10px 0}
+.note{background:#eaf4ff;padding:10px;border-radius:8px}
+.warn{background:#fff3cd;padding:10px;border-radius:8px}
+.install{background:#111;color:#fff;text-align:center;padding:10px}
 
-.fade{
-  animation:fade .2s;
-}
+.progress{height:6px;background:#eee;border-radius:6px;overflow:hidden;margin-bottom:10px}
+.progress div{height:100%;background:#111;width:0}
 
-@keyframes fade{
-  from{opacity:0}
-  to{opacity:1}
-}
+.fade{animation:fade .2s}
+@keyframes fade{from{opacity:0}to{opacity:1}}
