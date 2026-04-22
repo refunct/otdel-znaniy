@@ -2,20 +2,19 @@
 
 const state = {
   data: null,
-  currentTest: null,
+  currentTestId: null,
   questions: [],
   answers: {},
-  questionIndex: 0,
-  showAnswers: false
+  index: 0
 }
 
-let deferredPrompt = null
+let installPrompt = null
 
 /* ===================== PWA INSTALL ===================== */
 
 window.addEventListener('beforeinstallprompt', (e) => {
   e.preventDefault()
-  deferredPrompt = e
+  installPrompt = e
 
   const banner = document.getElementById('installBanner')
   if (banner && !localStorage.getItem('installed')) {
@@ -23,14 +22,11 @@ window.addEventListener('beforeinstallprompt', (e) => {
   }
 })
 
-window.addEventListener('DOMContentLoaded', () => {
-  const btn = document.getElementById('installBtn')
-
-  if (btn) {
-    btn.addEventListener('click', async () => {
-      if (!deferredPrompt) return
-      deferredPrompt.prompt()
-      await deferredPrompt.userChoice
+document.addEventListener('click', (e) => {
+  if (e.target.id === 'installBtn') {
+    if (!installPrompt) return
+    installPrompt.prompt()
+    installPrompt.userChoice.then(() => {
       localStorage.setItem('installed', '1')
     })
   }
@@ -38,13 +34,13 @@ window.addEventListener('DOMContentLoaded', () => {
 
 /* ===================== LOAD EXCEL ===================== */
 
-async function loadData() {
+async function loadExcel() {
   try {
-    const guideBuffer = await fetch('guide.xlsx').then(r => r.arrayBuffer())
-    const testBuffer = await fetch('tests.xlsx').then(r => r.arrayBuffer())
+    const guideBuf = await fetch('guide.xlsx').then(r => r.arrayBuffer())
+    const testBuf = await fetch('tests.xlsx').then(r => r.arrayBuffer())
 
-    const wb1 = XLSX.read(guideBuffer)
-    const wb2 = XLSX.read(testBuffer)
+    const wb1 = XLSX.read(guideBuf)
+    const wb2 = XLSX.read(testBuf)
 
     state.data = {
       guides: XLSX.utils.sheet_to_json(wb1.Sheets[wb1.SheetNames[0]]),
@@ -53,8 +49,8 @@ async function loadData() {
       questions: XLSX.utils.sheet_to_json(wb2.Sheets[wb2.SheetNames[1]])
     }
 
-  } catch (err) {
-    console.error('Excel load error:', err)
+  } catch (e) {
+    console.error('Excel error:', e)
 
     const app = document.getElementById('app')
     if (app) {
@@ -63,10 +59,10 @@ async function loadData() {
   }
 }
 
-/* ===================== TEXT PARSER ===================== */
+/* ===================== TEXT FORMAT ===================== */
 
-function parseText(text = "") {
-  return text
+function formatText(t = "") {
+  return t
     .replace(/<q>(.*?)<\/q>/g, '<div class="quote">$1</div>')
     .replace(/<note>(.*?)<\/note>/g, '<div class="note">$1</div>')
     .replace(/<warn>(.*?)<\/warn>/g, '<div class="warn">$1</div>')
@@ -74,7 +70,7 @@ function parseText(text = "") {
 
 /* ===================== ROUTER ===================== */
 
-function navigate(page, id) {
+function go(page, id) {
   const url = id ? `?page=${page}&id=${id}` : `?page=${page}`
   history.pushState({}, '', url)
   render()
@@ -85,19 +81,18 @@ function navigate(page, id) {
 function render() {
   if (!state.data) return
 
-  const params = new URLSearchParams(location.search)
-  const page = params.get('page') || 'home'
-  const id = params.get('id')
+  const p = new URLSearchParams(location.search)
+  const page = p.get('page') || 'home'
+  const id = p.get('id')
 
   const app = document.getElementById('app')
   if (!app) return
 
   app.innerHTML = ''
-  app.classList.add('fade')
 
   /* HOME */
   if (page === 'home') {
-    app.innerHTML = `<div class="card">Добро пожаловать в Отдел знаний</div>`
+    app.innerHTML = `<div class="card">Отдел знаний</div>`
   }
 
   /* GUIDES */
@@ -111,7 +106,7 @@ function render() {
     })
   }
 
-  /* GUIDE DETAIL */
+  /* GUIDE */
   if (page === 'guide') {
     state.data.sections
       .filter(s => String(s['id справочника']) === String(id))
@@ -119,7 +114,7 @@ function render() {
         app.innerHTML += `
           <div class="card">
             <h3>${s['название раздела']}</h3>
-            ${parseText(s['текст раздела'] || '')}
+            ${formatText(s['текст раздела'] || '')}
           </div>
         `
       })
@@ -140,30 +135,26 @@ function render() {
   if (page === 'result') renderResult()
 }
 
-/* ===================== TEST LOGIC ===================== */
+/* ===================== TEST ===================== */
 
 function startTest(id) {
-  state.currentTest = id
+  state.currentTestId = id
   state.answers = {}
-  state.questionIndex = 0
+  state.index = 0
 
   state.questions = state.data.questions.filter(
     q => String(q['id теста']) === String(id)
   )
 
-  const meta = state.data.tests.find(t => String(t.id) === String(id))
-  state.showAnswers = meta && Number(meta['показывать ответы']) === 1
-
-  navigate('test', id)
+  go('test', id)
 }
 
 function renderTest() {
+  const q = state.questions[state.index]
   const app = document.getElementById('app')
-  if (!app) return
 
-  const q = state.questions[state.questionIndex]
   if (!q) {
-    navigate('result')
+    go('result')
     return
   }
 
@@ -178,7 +169,7 @@ function renderTest() {
 
   answers.sort(() => Math.random() - 0.5)
 
-  const progress = (state.questionIndex / state.questions.length) * 100
+  const progress = (state.index / state.questions.length) * 100
 
   app.innerHTML = `
     <div class="progress">
@@ -189,48 +180,45 @@ function renderTest() {
       <h3>${q['вопрос']}</h3>
 
       ${answers.map(a => `
-        <div>
-          <button onclick="answer('${String(a).replace(/'/g, "\\'")}')">
-            ${a}
-          </button>
-        </div>
+        <button onclick="selectAnswer('${String(a).replace(/'/g,"\\'")}')">
+          ${a}
+        </button>
       `).join('')}
 
-      ${q['текстовый ответ']
-        ? `<input placeholder="Введите ответ" oninput="textAnswer(this.value)">`
-        : ''
-      }
+      ${q['текстовый ответ'] ? `
+        <input placeholder="Введите ответ" oninput="textAnswer(this.value)">
+      ` : ''}
 
       <br><br>
 
-      <button onclick="prevQ()">Назад</button>
-      <button onclick="nextQ()">Далее</button>
+      <button onclick="prev()">Назад</button>
+      <button onclick="next()">Далее</button>
     </div>
   `
 }
 
 /* ===================== ANSWERS ===================== */
 
-function answer(val) {
-  state.answers[state.questionIndex] = val
+function selectAnswer(v) {
+  state.answers[state.index] = v
 }
 
-function textAnswer(val) {
-  state.answers[state.questionIndex] = val
+function textAnswer(v) {
+  state.answers[state.index] = v
 }
 
-function nextQ() {
-  if (state.questionIndex < state.questions.length - 1) {
-    state.questionIndex++
+function next() {
+  if (state.index < state.questions.length - 1) {
+    state.index++
     renderTest()
   } else {
-    navigate('result')
+    go('result')
   }
 }
 
-function prevQ() {
-  if (state.questionIndex > 0) {
-    state.questionIndex--
+function prev() {
+  if (state.index > 0) {
+    state.index--
     renderTest()
   }
 }
@@ -241,71 +229,59 @@ function renderResult() {
   let correct = 0
 
   state.questions.forEach((q, i) => {
-    const user = (state.answers[i] || '').toString().trim().toLowerCase()
-    const right = (q['ответ 1'] || '').toString().trim().toLowerCase()
+    const user = (state.answers[i] || '').toLowerCase().trim()
+    const right = (q['ответ 1'] || '').toLowerCase().trim()
 
     if (user === right) correct++
   })
 
   const percent = Math.round((correct / state.questions.length) * 100)
 
-  const app = document.getElementById('app')
-  if (!app) return
-
-  app.innerHTML = `
+  document.getElementById('app').innerHTML = `
     <div class="card">
       <h2>Результат: ${percent}%</h2>
-      <button onclick="navigate('tests')">К тестам</button>
+      <button onclick="go('tests')">Назад к тестам</button>
     </div>
   `
 }
 
 /* ===================== SEARCH (FIXED) ===================== */
 
-function searchQuery(value) {
+document.addEventListener('input', (e) => {
+  if (e.target.id === 'searchInput') {
+    search(e.target.value)
+  }
+})
+
+function search(v) {
   if (!state.data) return
-  if (!value) return render()
+  if (!v) return render()
 
-  const v = value.toLowerCase()
   const app = document.getElementById('app')
-
-  if (!app) return
+  const q = v.toLowerCase()
 
   app.innerHTML = ''
 
   state.data.sections
-    .filter(s =>
-      (s['название раздела'] || '').toLowerCase().includes(v)
-    )
+    .filter(s => (s['название раздела'] || '').toLowerCase().includes(q))
     .forEach(s => {
       app.innerHTML += `
-        <div class="card">
-          ${s['название раздела']}
-        </div>
+        <div class="card">${s['название раздела']}</div>
       `
     })
 }
 
-/* ===================== EVENTS (FIXED DELEGATION) ===================== */
+/* ===================== EVENTS ===================== */
 
 document.addEventListener('click', (e) => {
-  const t = e.target
-
-  if (t.dataset.nav) navigate(t.dataset.nav)
-  if (t.dataset.guide) navigate('guide', t.dataset.guide)
-  if (t.dataset.test) startTest(t.dataset.test)
-})
-
-document.addEventListener('input', (e) => {
-  if (e.target.id === 'searchInput') {
-    searchQuery(e.target.value)
-  }
+  if (e.target.dataset.guide) go('guide', e.target.dataset.guide)
+  if (e.target.dataset.test) startTest(e.target.dataset.test)
 })
 
 /* ===================== INIT ===================== */
 
-(async () => {
-  await loadData()
+(async function init() {
+  await loadExcel()
   render()
 })()
 
