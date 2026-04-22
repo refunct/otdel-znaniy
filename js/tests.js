@@ -1,12 +1,13 @@
 // tests.js
-import { state, elements, escapeHtml, navigateTo } from './app.js';
+import { state, elements, escapeHtml, navigateTo, formatExcelDate } from './app.js';
 
 let timerInterval = null;
 let testState = {
     questions: [],
     answers: {},
     startTime: null,
-    currentIndex: 0
+    currentIndex: 0,
+    test: null
 };
 
 function shuffle(arr) {
@@ -18,11 +19,22 @@ function shuffle(arr) {
 }
 
 function prepareQuestions(testId) {
-    return state.questions.filter(q => String(q.test_id) === String(testId)).map(q => {
-        const answers = [];
-        for (let i=1; i<=6; i++) if (q[`answer${i}`]) answers.push(q[`answer${i}`].trim());
-        return { ...q, shuffledAnswers: q.text_answer ? [] : shuffle(answers) };
-    });
+    // Приводим к строке для надёжности
+    return state.questions
+        .filter(q => String(q.test_id) === String(testId))
+        .map(q => {
+            const answers = [];
+            for (let i = 1; i <= 6; i++) {
+                const ans = q[`answer${i}`];
+                if (ans && String(ans).trim() !== '') {
+                    answers.push(String(ans).trim());
+                }
+            }
+            return {
+                ...q,
+                shuffledAnswers: q.text_answer ? [] : shuffle(answers)
+            };
+        });
 }
 
 export function renderTestsList() {
@@ -35,18 +47,37 @@ export function renderTestsList() {
             ${t.image ? `<img src="${escapeHtml(t.image)}" class="card-image" loading="lazy">` : '<div class="card-image"></div>'}
             <div class="card-content">
                 <h3 class="card-title">${escapeHtml(t.title)}</h3>
-                <div class="card-meta">${t.author ? `<span>${escapeHtml(t.author)}</span>` : ''} ${t.date ? `<span>${formatExcelDate(t.date)}</span>` : ''} ${t.time_limit>0 ? `<span>⏱ ${t.time_limit} мин</span>` : ''}</div>
+                <div class="card-meta">
+                    ${t.author ? `<span>${escapeHtml(t.author)}</span>` : ''}
+                    ${t.date ? `<span>${formatExcelDate(t.date)}</span>` : ''}
+                    ${t.time_limit > 0 ? `<span>⏱ ${t.time_limit} мин</span>` : ''}
+                </div>
             </div>
         </div>`).join('')}</div>`;
     elements.contentContainer.innerHTML = html;
-    document.querySelectorAll('.test-card').forEach(c => c.addEventListener('click', () => navigateTo('tests', c.dataset.testId)));
+    document.querySelectorAll('.test-card').forEach(c => {
+        c.addEventListener('click', () => {
+            const testId = c.dataset.testId;
+            console.log('Opening test:', testId);
+            navigateTo('tests', testId);
+        });
+    });
 }
 
 export function startTest(testId) {
+    console.log('startTest called with', testId);
     const test = state.tests.find(t => String(t.id) === String(testId));
-    if (!test) return navigateTo('tests');
+    if (!test) {
+        console.error('Test not found for id', testId);
+        return navigateTo('tests');
+    }
+    const questions = prepareQuestions(testId);
+    if (!questions.length) {
+        console.error('No questions for test', testId);
+        return navigateTo('tests');
+    }
     testState = {
-        questions: prepareQuestions(testId),
+        questions,
         answers: {},
         startTime: Date.now(),
         currentIndex: 0,
@@ -66,7 +97,7 @@ function renderQuestion() {
             <button class="back-button" id="exitTest">← К тестам</button>
             <div class="test-header">
                 <span>${escapeHtml(test.title)} — ${currentIndex+1}/${questions.length}</span>
-                ${test.time_limit>0 ? `<span class="timer" id="timerDisplay"></span>` : ''}
+                ${test.time_limit > 0 ? `<span class="timer" id="timerDisplay"></span>` : ''}
             </div>
             <div class="question-card">
                 <div class="question-text">${escapeHtml(q.question)}</div>
@@ -84,9 +115,12 @@ function renderQuestion() {
             </div>
         </div>`;
     elements.contentContainer.innerHTML = html;
-    if (test.time_limit>0) startTimer(test.time_limit*60);
+    if (test.time_limit > 0) startTimer(test.time_limit * 60);
     document.getElementById('exitTest').addEventListener('click', () => {
-        if (confirm('Прогресс будет потерян. Выйти?')) { clearInterval(timerInterval); navigateTo('tests'); }
+        if (confirm('Прогресс будет потерян. Выйти?')) {
+            clearInterval(timerInterval);
+            navigateTo('tests');
+        }
     });
     if (!isText) {
         document.querySelectorAll('.answer-item').forEach(el => el.addEventListener('click', () => {
@@ -122,13 +156,13 @@ function finishTest(isTimeout) {
     const { questions, answers } = testState;
     let correct = 0;
     questions.forEach(q => {
-        const user = (answers[q.id]||'').trim().toLowerCase();
+        const user = (answers[q.id] || '').trim().toLowerCase();
         if (!user) return;
-        const correctAns = (q.answer1||'').trim().toLowerCase();
+        const correctAns = (q.answer1 || '').trim().toLowerCase();
         if (q.text_answer ? user === correctAns : user === correctAns) correct++;
     });
-    const percent = Math.round(correct/questions.length*100) || 0;
-    let cls = 'bad'; if (percent>=70) cls='good'; else if (percent>=40) cls='medium';
+    const percent = Math.round(correct / questions.length * 100) || 0;
+    let cls = 'bad'; if (percent >= 70) cls = 'good'; else if (percent >= 40) cls = 'medium';
     elements.contentContainer.innerHTML = `
         <div class="test-container">
             <button class="back-button" id="backToTests">← К тестам</button>
