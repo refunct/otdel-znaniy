@@ -206,7 +206,7 @@ function showInstallPrompt() {
 
 // Service Worker
 if ('serviceWorker' in navigator) {
-    navigator.serviceWorker.register('js/sw.js').catch(console.warn);
+    navigator.serviceWorker.register('sw.js').catch(console.warn);
 }
 
 // Инициализация
