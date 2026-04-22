@@ -317,8 +317,8 @@
             <div class="guides-grid">
                 ${filteredGuides.map(guide => `
                     <div class="guide-card" data-guide-id="${guide.id}">
-                        ${guide.image ? `<img src="${escapeHtml(guide.image)}" class="card-image" alt="${escapeHtml(guide.title)}" loading="lazy" onerror="this.style.display='none'">` : 
-                        `<div class="card-image" style="background: #e9ecef; display: flex; align-items: center; justify-content: center; color: #95a5a6;">Нет изображения</div>`}
+                        ${guide.image ? `<img src="${escapeHtml(guide.image)}" class="card-image" alt="${escapeHtml(guide.title)}" loading="lazy">` : 
+                        `<div class="card-image"></div>`}
                         <div class="card-content">
                             <h3 class="card-title">${escapeHtml(guide.title || 'Без названия')}</h3>
                             <div class="card-meta">
@@ -430,8 +430,8 @@
             <div class="tests-grid">
                 ${state.tests.map(test => `
                     <div class="test-card" data-test-id="${test.id}">
-                        ${test.image ? `<img src="${escapeHtml(test.image)}" class="card-image" alt="${escapeHtml(test.title)}" loading="lazy" onerror="this.style.display='none'">` : 
-                        `<div class="card-image" style="background: #e9ecef; display: flex; align-items: center; justify-content: center; color: #95a5a6;">Нет изображения</div>`}
+                        ${test.image ? `<img src="${escapeHtml(test.image)}" class="card-image" alt="${escapeHtml(test.title)}" loading="lazy">` : 
+                        `<div class="card-image"></div>`}
                         <div class="card-content">
                             <h3 class="card-title">${escapeHtml(test.title || 'Без названия')}</h3>
                             <div class="card-meta">
@@ -652,6 +652,11 @@
             const userAnswer = String(state.testAnswers[q.id] || '').trim();
             const correctAnswer = String(q.answer1 || '').trim();
             
+            // Пропускаем, если ответ не выбран
+            if (userAnswer === '') {
+                return;
+            }
+            
             if (q.text_answer) {
                 if (userAnswer.toLowerCase() === correctAnswer.toLowerCase()) {
                     correct++;
@@ -663,7 +668,7 @@
             }
         });
         
-        const percent = Math.round((correct / questions.length) * 100);
+        const percent = questions.length > 0 ? Math.round((correct / questions.length) * 100) : 0;
         
         let percentClass = 'bad';
         if (percent >= 70) percentClass = 'good';

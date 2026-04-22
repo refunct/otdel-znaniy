@@ -158,7 +158,65 @@ body {
     width: 100%;
     height: 180px;
     object-fit: cover;
+    background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    color: white;
+    font-size: 3rem;
+    font-weight: bold;
+}
+/* Заглушки с иконками */
+.card-image[src=""],
+.card-image:not([src]),
+.card-image[onerror] {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+    color: white;
+    font-size: 3rem;
+}
+
+/* Разные цвета для разных карточек */
+.guide-card:nth-child(6n+1) .card-image {
+    background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+}
+.guide-card:nth-child(6n+2) .card-image,
+.test-card:nth-child(6n+2) .card-image {
+    background: linear-gradient(135deg, #f093fb 0%, #f5576c 100%);
+}
+.guide-card:nth-child(6n+3) .card-image,
+.test-card:nth-child(6n+3) .card-image {
+    background: linear-gradient(135deg, #4facfe 0%, #00f2fe 100%);
+}
+.guide-card:nth-child(6n+4) .card-image,
+.test-card:nth-child(6n+4) .card-image {
+    background: linear-gradient(135deg, #43e97b 0%, #38f9d7 100%);
+}
+.guide-card:nth-child(6n+5) .card-image,
+.test-card:nth-child(6n+5) .card-image {
+    background: linear-gradient(135deg, #fa709a 0%, #fee140 100%);
+}
+.guide-card:nth-child(6n+6) .card-image,
+.test-card:nth-child(6n+6) .card-image {
+    background: linear-gradient(135deg, #a18cd1 0%, #fbc2eb 100%);
+}
+
+/* Иконки-заглушки в зависимости от типа */
+.guide-card .card-image::before {
+    content: "📚";
+}
+.test-card .card-image::before {
+    content: "📝";
+}
+
+/* Если изображение загрузилось - скрываем псевдоэлемент */
+.card-image[src]:not([src=""]) {
     background: #e9ecef;
+}
+.card-image[src]:not([src=""])::before {
+    content: none;
 }
 
 .card-content {
@@ -575,8 +633,9 @@ body {
     }
     
     .guides-grid, .tests-grid {
-        grid-template-columns: 1fr;
-        gap: 16px;
+        display: grid;
+        grid-template-columns: repeat(auto-fill, minmax(280px, 1fr));
+        gap: 24px;
     }
     
     .section-card {
