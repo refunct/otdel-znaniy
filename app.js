@@ -15,9 +15,8 @@
         currentQuestionIndex: 0,
         testAnswers: {},
         testStartTime: null,
-        testQuestions: [], // было упущено при инициализации
-        searchQuery: '',
-        isOnline: navigator.onLine
+        testQuestions: [],
+        searchQuery: ''
     };
 
     // DOM элементы
@@ -86,79 +85,10 @@
 
     // Инициализация
     async function init() {
-        // Проверяем наличие иконок и генерируем только если их нет
-        async function checkAndGenerateIcons() {
-            const manifestLink = document.querySelector('link[rel="manifest"]');
-            if (!manifestLink) return;
-            
-            // Пробуем загрузить существующие иконки
-            const icon192exists = await fetch('./img/icon-192.png').then(r => r.ok).catch(() => false);
-            const icon512exists = await fetch('./img/icon-512.png').then(r => r.ok).catch(() => false);
-            
-            // Если обе есть - используем их
-            if (icon192exists && icon512exists) {
-                manifestLink.href = 'manifest.json';
-                return;
-            }
-            
-            // Если нет - генерируем
-            function generateIcon(size) {
-                const canvas = document.createElement('canvas');
-                canvas.width = size;
-                canvas.height = size;
-                const ctx = canvas.getContext('2d');
-                
-                ctx.fillStyle = '#2c3e50';
-                ctx.fillRect(0, 0, size, size);
-                
-                ctx.fillStyle = 'white';
-                ctx.font = `bold ${size * 0.4}px Arial`;
-                ctx.textAlign = 'center';
-                ctx.textBaseline = 'middle';
-                ctx.fillText('📚', size/2, size/2);
-                
-                return canvas.toDataURL();
-            }
-            
-            const manifest = {
-                name: "Отдел знаний",
-                short_name: "Знания",
-                start_url: ".",
-                display: "standalone",
-                background_color: "#f5f7fa",
-                theme_color: "#2c3e50",
-                icons: [
-                    { src: generateIcon(192), sizes: "192x192", type: "image/png" },
-                    { src: generateIcon(512), sizes: "512x512", type: "image/png" }
-                ]
-            };
-            
-            const manifestBlob = new Blob([JSON.stringify(manifest)], { type: 'application/json' });
-            const manifestURL = URL.createObjectURL(manifestBlob);
-            manifestLink.href = manifestURL;
-        }
-        
-        await checkAndGenerateIcons();
-        
-        registerServiceWorker();
         setupEventListeners();
         await loadData();
-        addInstallButton();
         handleRouting();
         window.addEventListener('popstate', handleRouting);
-        updateOnlineStatus();
-    }
-
-    function updateOnlineStatus() {
-        state.isOnline = navigator.onLine;
-        window.addEventListener('online', () => { state.isOnline = true; });
-        window.addEventListener('offline', () => { state.isOnline = false; });
-    }
-
-    function registerServiceWorker() {
-        if ('serviceWorker' in navigator) {
-            navigator.serviceWorker.register('sw.js').catch(console.warn);
-        }
     }
 
     function setupEventListeners() {
@@ -386,9 +316,8 @@
                     <div class="media-section">
                         <div class="media-title">Изображения</div>
                         <div class="images-grid">
-                            ${images.map(img => state.isOnline ? 
-                                `<img src="${escapeHtml(img)}" class="section-image" alt="Изображение" loading="lazy" onerror="if(this.parentElement) this.parentElement.innerHTML='<div class=\\'offline-placeholder\\'>Не удалось загрузить изображение</div>'">` :
-                                '<div class="offline-placeholder">Изображение недоступно в офлайн-режиме</div>'
+                            ${images.map(img => 
+                                `<img src="${escapeHtml(img)}" class="section-image" alt="Изображение" loading="lazy" onerror="if(this.parentElement) this.parentElement.innerHTML='<div class=\\'offline-placeholder\\'>Не удалось загрузить изображение</div>'">`
                             ).join('')}
                         </div>
                     </div>
@@ -398,9 +327,8 @@
                     <div class="media-section">
                         <div class="media-title">Файлы для скачивания</div>
                         <ul class="files-list">
-                            ${files.map(file => state.isOnline ?
-                                `<li class="file-item"><a href="${escapeHtml(file)}" class="file-link" download>📄 ${getFileName(file)}</a></li>` :
-                                '<li class="file-item"><span class="offline-placeholder" style="display: inline-block; padding: 8px;">Файл недоступен в офлайн-режиме</span></li>'
+                            ${files.map(file => 
+                                `<li class="file-item"><a href="${escapeHtml(file)}" class="file-link" download>📄 ${getFileName(file)}</a></li>`
                             ).join('')}
                         </ul>
                     </div>
@@ -410,9 +338,8 @@
                     <div class="media-section">
                         <div class="media-title">Видео</div>
                         <ul class="videos-list">
-                            ${videos.map(video => state.isOnline ?
-                                `<li class="video-item"><a href="${escapeHtml(video)}" class="video-link" target="_blank">🎬 ${getFileName(video)}</a></li>` :
-                                '<li class="video-item"><span class="offline-placeholder" style="display: inline-block; padding: 8px;">Видео недоступно в офлайн-режиме</span></li>'
+                            ${videos.map(video => 
+                                `<li class="video-item"><a href="${escapeHtml(video)}" class="video-link" target="_blank">🎬 ${getFileName(video)}</a></li>`
                             ).join('')}
                         </ul>
                     </div>
@@ -575,7 +502,6 @@
         
         elements.contentContainer.innerHTML = html;
         
-        // Запуск таймера если нужно
         if (test.time_limit && Number(test.time_limit) > 0) {
             const elapsed = Math.floor((Date.now() - state.testStartTime) / 1000);
             const total = Number(test.time_limit) * 60;
@@ -653,7 +579,6 @@
             const userAnswer = String(state.testAnswers[q.id] || '').trim();
             const correctAnswer = String(q.answer1 || '').trim();
             
-            // Пропускаем, если ответ не выбран
             if (userAnswer === '') {
                 return;
             }
@@ -730,79 +655,3 @@
 
     init();
 })();
-
-// PWA установка
-let deferredPrompt;
-let installPromptShown = false;
-
-window.addEventListener('beforeinstallprompt', (e) => {
-    e.preventDefault();
-    deferredPrompt = e;
-    
-    // Показываем не сразу, а через 3 секунды после загрузки
-    setTimeout(() => {
-        if (deferredPrompt && !installPromptShown && state.dataLoaded) {
-            showInstallPrompt();
-        }
-    }, 3000);
-});
-
-function showInstallPrompt() {
-    if (!deferredPrompt) return;
-    installPromptShown = true;
-    
-    elements.modalContent.innerHTML = `
-        <h3 style="margin-bottom: 16px; font-size: 1.5rem;">📱 Установить приложение</h3>
-        <p style="margin-bottom: 20px;">Добавьте "Отдел знаний" на главный экран для быстрого доступа и работы без интернета</p>
-        <div class="modal-buttons">
-            <button class="modal-btn cancel" id="modalCancel">Позже</button>
-            <button class="modal-btn confirm" id="modalInstall">Установить</button>
-        </div>
-    `;
-    
-    elements.modalOverlay.style.display = 'flex';
-    
-    document.getElementById('modalCancel').onclick = () => {
-        elements.modalOverlay.style.display = 'none';
-        installPromptShown = false;
-    };
-    
-    document.getElementById('modalInstall').onclick = async () => {
-        deferredPrompt.prompt();
-        const { outcome } = await deferredPrompt.userChoice;
-        deferredPrompt = null;
-        elements.modalOverlay.style.display = 'none';
-        
-        if (outcome === 'accepted') {
-            console.log('PWA установлено');
-        }
-    };
-}
-
-// Кнопка установки в интерфейсе (опционально)
-function addInstallButton() {
-    const header = elements.header;
-    const installBtn = document.createElement('button');
-    installBtn.id = 'installBtn';
-    installBtn.className = 'install-btn';
-    installBtn.innerHTML = '📱 Установить';
-    installBtn.style.display = 'none';
-    installBtn.onclick = () => {
-        if (deferredPrompt) {
-            showInstallPrompt();
-        } else {
-            alert('Установка недоступна. Возможно, приложение уже установлено.');
-        }
-    };
-    
-    header.appendChild(installBtn);
-    
-    window.addEventListener('beforeinstallprompt', () => {
-        installBtn.style.display = 'block';
-    });
-    
-    window.addEventListener('appinstalled', () => {
-        installBtn.style.display = 'none';
-        deferredPrompt = null;
-    });
-}
