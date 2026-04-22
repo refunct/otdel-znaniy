@@ -386,7 +386,7 @@
                         <div class="media-title">Изображения</div>
                         <div class="images-grid">
                             ${images.map(img => state.isOnline ? 
-                                `<img src="${escapeHtml(img)}" class="section-image" alt="Изображение" loading="lazy" onerror="this.parentElement.innerHTML='<div class=\\'offline-placeholder\\'>Не удалось загрузить изображение</div>'">` :
+                                `<img src="${escapeHtml(img)}" class="section-image" alt="Изображение" loading="lazy" onerror="if(this.parentElement) this.parentElement.innerHTML='<div class=\\'offline-placeholder\\'>Не удалось загрузить изображение</div>'">` :
                                 '<div class="offline-placeholder">Изображение недоступно в офлайн-режиме</div>'
                             ).join('')}
                         </div>
