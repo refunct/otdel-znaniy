@@ -274,6 +274,79 @@
         });
     }
 
+    function highlightText(text, query) {
+    if (!query || !text) return escapeHtml(text);
+    
+    const escapedText = escapeHtml(text);
+    const escapedQuery = escapeHtml(query);
+    
+    // Простая замена без учёта регистра
+    const regex = new RegExp(`(${escapedQuery})`, 'gi');
+    return escapedText.replace(regex, '<mark style="background: #fff3cd; padding: 2px 4px; border-radius: 4px;">$1</mark>');
+}
+
+    function renderSection(section) {
+        const images = parseMediaList(section.images);
+        const files = parseMediaList(section.files);
+        const videos = parseMediaList(section.videos);
+        
+        const title = state.searchQuery ? 
+            highlightText(section.title || 'Без названия', state.searchQuery) : 
+            escapeHtml(section.title || 'Без названия');
+        
+        const content = state.searchQuery ?
+            highlightText(section.content || '', state.searchQuery) :
+            processContent(section.content || '');
+        
+        return `
+            <div class="section-card">
+                <h3 class="section-title">${title}</h3>
+                <div class="section-content">${content}</div>
+                
+                ${images.length > 0 ? `
+                    <div class="media-section">
+                        <div class="media-title">Изображения</div>
+                        <div class="images-grid">
+                            ${images.map(img => 
+                                `<img src="${escapeHtml(img)}" class="section-image" alt="Изображение" loading="lazy" onerror="if(this.parentElement) this.parentElement.innerHTML='<div class=\\'offline-placeholder\\'>Не удалось загрузить изображение</div>'">`
+                            ).join('')}
+                        </div>
+                    </div>
+                ` : ''}
+                
+                ${files.length > 0 ? `
+                    <div class="media-section">
+                        <div class="media-title">Файлы для скачивания</div>
+                        <ul class="files-list">
+                            ${files.map(file => {
+                                const fileName = getFileName(file);
+                                const highlightedName = state.searchQuery ? 
+                                    highlightText(fileName, state.searchQuery) : 
+                                    escapeHtml(fileName);
+                                return `<li class="file-item"><a href="${escapeHtml(file)}" class="file-link" download>📄 ${highlightedName}</a></li>`;
+                            }).join('')}
+                        </ul>
+                    </div>
+                ` : ''}
+                
+                ${videos.length > 0 ? `
+                    <div class="media-section">
+                        <div class="media-title">Видео</div>
+                        <ul class="videos-list">
+                            ${videos.map(video => {
+                                const videoName = getFileName(video);
+                                const highlightedName = state.searchQuery ? 
+                                    highlightText(videoName, state.searchQuery) : 
+                                    escapeHtml(videoName);
+                                return `<li class="video-item"><a href="${escapeHtml(video)}" class="video-link" target="_blank">🎬 ${highlightedName}</a></li>`;
+                            }).join('')}
+                        </ul>
+                    </div>
+                ` : ''}
+            </div>
+        `;
+    }
+
     function renderSections() {
         const guide = state.guides.find(g => String(g.id) === String(state.currentGuideId));
         if (!guide) {
@@ -283,18 +356,53 @@
         
         let sections = state.sections.filter(s => String(s.guide_id) === String(state.currentGuideId));
         
+        // Поиск по названию, контенту, файлам, видео
         if (state.searchQuery) {
-            sections = sections.filter(s => 
-                (s.title || '').toLowerCase().includes(state.searchQuery)
-            );
+            sections = sections.filter(s => {
+                const searchText = [
+                    s.title || '',
+                    s.content || '',
+                    s.images || '',
+                    s.files || '',
+                    s.videos || ''
+                ].join(' ').toLowerCase();
+                
+                return searchText.includes(state.searchQuery);
+            });
         }
+        
+        // Если поиск активен и ничего не найдено
+        if (state.searchQuery && sections.length === 0) {
+            const html = `
+                <div class="sections-container">
+                    <button class="back-button" id="backToGuides">← Назад к справочникам</button>
+                    <h2 style="margin-bottom: 24px; color: var(--primary);">${escapeHtml(guide.title || 'Справочник')}</h2>
+                    <div class="empty-state">
+                        🔍 По запросу «${escapeHtml(state.searchQuery)}» ничего не найдено
+                    </div>
+                </div>
+            `;
+            
+            elements.contentContainer.innerHTML = html;
+            
+            document.getElementById('backToGuides')?.addEventListener('click', () => {
+                navigateTo('guides');
+            });
+            return;
+        }
+        
+        // Подсвечиваем количество найденных разделов при поиске
+        const searchInfo = state.searchQuery ? 
+            `<div style="margin-bottom: 16px; color: var(--gray);">
+                Найдено разделов: ${sections.length}
+            </div>` : '';
         
         const html = `
             <div class="sections-container">
                 <button class="back-button" id="backToGuides">← Назад к справочникам</button>
-                <h2 style="margin-bottom: 24px; color: var(--primary);">${escapeHtml(guide.title || 'Справочник')}</h2>
-                ${sections.length === 0 ? '<div class="empty-state">Разделы не найдены</div>' : 
-                    sections.map(section => renderSection(section)).join('')}
+                <h2 style="margin-bottom: 8px; color: var(--primary);">${escapeHtml(guide.title || 'Справочник')}</h2>
+                ${searchInfo}
+                ${sections.map(section => renderSection(section)).join('')}
             </div>
         `;
         
