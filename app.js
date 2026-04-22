@@ -86,8 +86,8 @@
     // Инициализация
     async function init() {
         setupEventListeners();
-        await loadData();           // дожидаемся загрузки данных
-        handleRouting();            // только потом роутинг
+        await loadData();
+        handleRouting();
         window.addEventListener('popstate', handleRouting);
     }
 
@@ -97,16 +97,35 @@
             if (!btn) return;
             const page = btn.dataset.page;
             if (page) {
+                // При переходе на тесты очищаем поиск
+                if (page === 'tests') {
+                    state.searchQuery = '';
+                    elements.searchInput.value = '';
+                }
                 navigateTo(page);
             }
         });
 
         elements.searchInput.addEventListener('input', (e) => {
             state.searchQuery = e.target.value.trim().toLowerCase();
-            if (state.currentPage === 'guides' && !state.currentGuideId) {
-                renderGuidesList();
-            } else if (state.currentPage === 'guides' && state.currentGuideId) {
-                renderSections();
+            
+            if (state.searchQuery) {
+                // Поиск работает только в справочниках
+                if (state.currentPage !== 'guides') {
+                    navigateTo('guides');
+                } else {
+                    // Уже в справочниках - показываем глобальный поиск
+                    renderGlobalSearch();
+                }
+            } else {
+                // Поиск очищен
+                if (state.currentPage === 'guides') {
+                    if (state.currentGuideId) {
+                        renderSections();
+                    } else {
+                        renderGuidesList();
+                    }
+                }
             }
         });
     }
@@ -132,7 +151,7 @@
             elements.searchInput.disabled = false;
             hideLoader();
             
-            // Принудительно рендерим текущую страницу после загрузки
+            // Принудительно рендерим текущую страницу
             handleRouting();
         } catch (error) {
             console.error('Ошибка загрузки данных:', error);
@@ -223,10 +242,19 @@
         if (page === 'guides') {
             if (id) {
                 state.currentGuideId = String(id);
-                renderSections();
+                // Если есть поисковый запрос при прямом переходе в справочник
+                if (state.searchQuery) {
+                    renderGlobalSearch();
+                } else {
+                    renderSections();
+                }
             } else {
                 state.currentGuideId = null;
-                renderGuidesList();
+                if (state.searchQuery) {
+                    renderGlobalSearch();
+                } else {
+                    renderGuidesList();
+                }
             }
         } else if (page === 'tests') {
             if (id) {
@@ -274,77 +302,75 @@
         });
     }
 
-    function highlightText(text, query) {
-    if (!query || !text) return escapeHtml(text);
-    
-    const escapedText = escapeHtml(text);
-    const escapedQuery = escapeHtml(query);
-    
-    // Простая замена без учёта регистра
-    const regex = new RegExp(`(${escapedQuery})`, 'gi');
-    return escapedText.replace(regex, '<mark style="background: #fff3cd; padding: 2px 4px; border-radius: 4px;">$1</mark>');
-}
-
-    function renderSection(section) {
-        const images = parseMediaList(section.images);
-        const files = parseMediaList(section.files);
-        const videos = parseMediaList(section.videos);
+    function renderGlobalSearch() {
+        // Ищем по всем разделам всех справочников
+        const matchedSections = state.sections.filter(s => {
+            const searchText = [
+                s.title || '',
+                s.content || '',
+                s.images || '',
+                s.files || '',
+                s.videos || ''
+            ].join(' ').toLowerCase();
+            
+            return searchText.includes(state.searchQuery);
+        });
         
-        const title = state.searchQuery ? 
-            highlightText(section.title || 'Без названия', state.searchQuery) : 
-            escapeHtml(section.title || 'Без названия');
+        // Группируем по справочникам
+        const guidesWithMatches = [];
         
-        const content = state.searchQuery ?
-            highlightText(section.content || '', state.searchQuery) :
-            processContent(section.content || '');
+        state.guides.forEach(guide => {
+            const guideSections = matchedSections.filter(s => String(s.guide_id) === String(guide.id));
+            if (guideSections.length > 0) {
+                guidesWithMatches.push({
+                    guide: guide,
+                    sections: guideSections
+                });
+            }
+        });
         
-        return `
-            <div class="section-card">
-                <h3 class="section-title">${title}</h3>
-                <div class="section-content">${content}</div>
-                
-                ${images.length > 0 ? `
-                    <div class="media-section">
-                        <div class="media-title">Изображения</div>
-                        <div class="images-grid">
-                            ${images.map(img => 
-                                `<img src="${escapeHtml(img)}" class="section-image" alt="Изображение" loading="lazy" onerror="if(this.parentElement) this.parentElement.innerHTML='<div class=\\'offline-placeholder\\'>Не удалось загрузить изображение</div>'">`
-                            ).join('')}
-                        </div>
+        if (guidesWithMatches.length === 0) {
+            const html = `
+                <div class="sections-container">
+                    <div class="empty-state">
+                        🔍 По запросу «${escapeHtml(state.searchQuery)}» ничего не найдено
                     </div>
-                ` : ''}
-                
-                ${files.length > 0 ? `
-                    <div class="media-section">
-                        <div class="media-title">Файлы для скачивания</div>
-                        <ul class="files-list">
-                            ${files.map(file => {
-                                const fileName = getFileName(file);
-                                const highlightedName = state.searchQuery ? 
-                                    highlightText(fileName, state.searchQuery) : 
-                                    escapeHtml(fileName);
-                                return `<li class="file-item"><a href="${escapeHtml(file)}" class="file-link" download>📄 ${highlightedName}</a></li>`;
-                            }).join('')}
-                        </ul>
-                    </div>
-                ` : ''}
-                
-                ${videos.length > 0 ? `
-                    <div class="media-section">
-                        <div class="media-title">Видео</div>
-                        <ul class="videos-list">
-                            ${videos.map(video => {
-                                const videoName = getFileName(video);
-                                const highlightedName = state.searchQuery ? 
-                                    highlightText(videoName, state.searchQuery) : 
-                                    escapeHtml(videoName);
-                                return `<li class="video-item"><a href="${escapeHtml(video)}" class="video-link" target="_blank">🎬 ${highlightedName}</a></li>`;
-                            }).join('')}
-                        </ul>
-                    </div>
-                ` : ''}
-            </div>
-        `;
+                </div>
+            `;
+            elements.contentContainer.innerHTML = html;
+            return;
+        }
+        
+        let html = `<div class="sections-container">`;
+        
+        guidesWithMatches.forEach(({ guide, sections }) => {
+            html += `
+                <div style="margin-bottom: 32px;">
+                    <h2 style="margin-bottom: 16px; color: var(--primary); cursor: pointer;" 
+                        class="guide-search-title" data-guide-id="${guide.id}">
+                        ${escapeHtml(guide.title || 'Справочник')} 
+                        <span style="font-size: 0.9rem; color: var(--gray); margin-left: 8px;">
+                            (${sections.length})
+                        </span>
+                    </h2>
+                    ${sections.map(section => renderSection(section)).join('')}
+                </div>
+            `;
+        });
+        
+        html += `</div>`;
+        
+        elements.contentContainer.innerHTML = html;
+        
+        // Клик по названию справочника переходит в него и очищает поиск
+        document.querySelectorAll('.guide-search-title').forEach(title => {
+            title.addEventListener('click', () => {
+                const guideId = title.dataset.guideId;
+                state.searchQuery = '';
+                elements.searchInput.value = '';
+                navigateTo('guides', guideId);
+            });
+        });
     }
 
     function renderSections() {
@@ -356,53 +382,12 @@
         
         let sections = state.sections.filter(s => String(s.guide_id) === String(state.currentGuideId));
         
-        // Поиск по названию, контенту, файлам, видео
-        if (state.searchQuery) {
-            sections = sections.filter(s => {
-                const searchText = [
-                    s.title || '',
-                    s.content || '',
-                    s.images || '',
-                    s.files || '',
-                    s.videos || ''
-                ].join(' ').toLowerCase();
-                
-                return searchText.includes(state.searchQuery);
-            });
-        }
-        
-        // Если поиск активен и ничего не найдено
-        if (state.searchQuery && sections.length === 0) {
-            const html = `
-                <div class="sections-container">
-                    <button class="back-button" id="backToGuides">← Назад к справочникам</button>
-                    <h2 style="margin-bottom: 24px; color: var(--primary);">${escapeHtml(guide.title || 'Справочник')}</h2>
-                    <div class="empty-state">
-                        🔍 По запросу «${escapeHtml(state.searchQuery)}» ничего не найдено
-                    </div>
-                </div>
-            `;
-            
-            elements.contentContainer.innerHTML = html;
-            
-            document.getElementById('backToGuides')?.addEventListener('click', () => {
-                navigateTo('guides');
-            });
-            return;
-        }
-        
-        // Подсвечиваем количество найденных разделов при поиске
-        const searchInfo = state.searchQuery ? 
-            `<div style="margin-bottom: 16px; color: var(--gray);">
-                Найдено разделов: ${sections.length}
-            </div>` : '';
-        
         const html = `
             <div class="sections-container">
                 <button class="back-button" id="backToGuides">← Назад к справочникам</button>
-                <h2 style="margin-bottom: 8px; color: var(--primary);">${escapeHtml(guide.title || 'Справочник')}</h2>
-                ${searchInfo}
-                ${sections.map(section => renderSection(section)).join('')}
+                <h2 style="margin-bottom: 24px; color: var(--primary);">${escapeHtml(guide.title || 'Справочник')}</h2>
+                ${sections.length === 0 ? '<div class="empty-state">Разделы не найдены</div>' : 
+                    sections.map(section => renderSection(section)).join('')}
             </div>
         `;
         
