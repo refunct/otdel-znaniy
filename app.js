@@ -86,6 +86,60 @@
 
     // Инициализация
     async function init() {
+        // Проверяем наличие иконок и генерируем только если их нет
+        async function checkAndGenerateIcons() {
+            const manifestLink = document.querySelector('link[rel="manifest"]');
+            if (!manifestLink) return;
+            
+            // Пробуем загрузить существующие иконки
+            const icon192exists = await fetch('./img/icon-192.png').then(r => r.ok).catch(() => false);
+            const icon512exists = await fetch('./img/icon-512.png').then(r => r.ok).catch(() => false);
+            
+            // Если обе есть - используем их
+            if (icon192exists && icon512exists) {
+                manifestLink.href = 'manifest.json';
+                return;
+            }
+            
+            // Если нет - генерируем
+            function generateIcon(size) {
+                const canvas = document.createElement('canvas');
+                canvas.width = size;
+                canvas.height = size;
+                const ctx = canvas.getContext('2d');
+                
+                ctx.fillStyle = '#2c3e50';
+                ctx.fillRect(0, 0, size, size);
+                
+                ctx.fillStyle = 'white';
+                ctx.font = `bold ${size * 0.4}px Arial`;
+                ctx.textAlign = 'center';
+                ctx.textBaseline = 'middle';
+                ctx.fillText('📚', size/2, size/2);
+                
+                return canvas.toDataURL();
+            }
+            
+            const manifest = {
+                name: "Отдел знаний",
+                short_name: "Знания",
+                start_url: ".",
+                display: "standalone",
+                background_color: "#f5f7fa",
+                theme_color: "#2c3e50",
+                icons: [
+                    { src: generateIcon(192), sizes: "192x192", type: "image/png" },
+                    { src: generateIcon(512), sizes: "512x512", type: "image/png" }
+                ]
+            };
+            
+            const manifestBlob = new Blob([JSON.stringify(manifest)], { type: 'application/json' });
+            const manifestURL = URL.createObjectURL(manifestBlob);
+            manifestLink.href = manifestURL;
+        }
+        
+        await checkAndGenerateIcons();
+        
         registerServiceWorker();
         setupEventListeners();
         await loadData();
@@ -670,3 +724,48 @@
 
     init();
 })();
+
+// PWA установка - принудительный показ
+let deferredPrompt;
+
+window.addEventListener('beforeinstallprompt', (e) => {
+    e.preventDefault();
+    deferredPrompt = e;
+    
+    // Показываем свою кнопку установки
+    setTimeout(() => {
+        showInstallPrompt();
+    }, 3000);
+});
+
+function showInstallPrompt() {
+    if (!deferredPrompt) return;
+    
+    elements.modalContent.innerHTML = `
+        <h3 style="margin-bottom: 16px;">📱 Установить приложение</h3>
+        <p>Добавьте "Отдел знаний" на главный экран для быстрого доступа и офлайн-работы</p>
+        <div class="modal-buttons">
+            <button class="modal-btn cancel" id="modalCancel">Позже</button>
+            <button class="modal-btn confirm" id="modalInstall">Установить</button>
+        </div>
+    `;
+    
+    elements.modalOverlay.style.display = 'flex';
+    
+    document.getElementById('modalCancel').onclick = () => {
+        elements.modalOverlay.style.display = 'none';
+    };
+    
+    document.getElementById('modalInstall').onclick = async () => {
+        deferredPrompt.prompt();
+        const { outcome } = await deferredPrompt.userChoice;
+        deferredPrompt = null;
+        elements.modalOverlay.style.display = 'none';
+    };
+}
+
+// Показывать при возвращении на сайт
+window.addEventListener('appinstalled', () => {
+    deferredPrompt = null;
+    console.log('PWA установлено');
+});
