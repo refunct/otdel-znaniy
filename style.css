@@ -1,0 +1,18 @@
+body{margin:0;font-family:system-ui;background:#f5f6f8;color:#111}
+header{padding:12px 16px;background:#fff;box-shadow:0 2px 6px rgba(0,0,0,.05);position:sticky;top:0;z-index:10}
+.container{padding:16px;max-width:900px;margin:auto}
+.card{background:#fff;border-radius:14px;padding:16px;margin-bottom:14px;box-shadow:0 4px 12px rgba(0,0,0,.06);cursor:pointer;transition:.25s}
+.card:hover{transform:translateY(-3px)}
+.hidden{display:none}
+input{width:100%;padding:10px;border-radius:10px;border:1px solid #ddd}
+button{padding:10px 14px;border:none;border-radius:10px;background:#111;color:#fff;cursor:pointer}
+.nav{display:flex;gap:8px;margin-bottom:12px}
+.nav button{background:#eee;color:#111}
+.quote{border-left:4px solid #111;padding-left:10px;margin:10px 0;font-style:italic}
+.note{background:#eaf4ff;padding:10px;border-radius:8px}
+.warn{background:#fff3cd;padding:10px;border-radius:8px}
+.install{background:#111;color:#fff;padding:10px;text-align:center}
+.progress{height:6px;background:#eee;border-radius:6px;overflow:hidden;margin-bottom:10px}
+.progress div{height:100%;background:#111;width:0}
+.fade{animation:fade .25s}
+@keyframes fade{from{opacity:0}to{opacity:1}}
