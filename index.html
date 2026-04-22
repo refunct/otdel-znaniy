@@ -5,7 +5,8 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=yes">
     <meta name="theme-color" content="#2c3e50">
     <title>Отдел знаний</title>
-    <link rel="stylesheet" href="style.css">
+    <link rel="stylesheet" href="styles/style.css">
+    <link rel="manifest" href="json/manifest.json">
 </head>
 <body>
     <header class="app-header" id="appHeader">
@@ -15,9 +16,6 @@
                 <button class="nav-btn active" data-page="guides">Справочники</button>
                 <button class="nav-btn" data-page="tests">Тесты</button>
             </nav>
-        </div>
-        <div class="search-wrapper" id="searchWrapper">
-            <input type="search" id="searchInput" class="search-input" placeholder="Поиск по разделам..." autocomplete="off" disabled>
         </div>
     </header>
 
@@ -30,7 +28,7 @@
         <div class="modal-content" id="modalContent"></div>
     </div>
 
-    <script src="xlsx.full.min.js"></script>
-    <script src="app.js"></script>
+    <script src="js/xlsx.full.min.js"></script>
+    <script src="js/app.js" type="module"></script>
 </body>
 </html>
