@@ -10,6 +10,13 @@ let testState = {
     test: null
 };
 
+export function resetTestTimer() {
+    if (timerInterval) {
+        clearInterval(timerInterval);
+        timerInterval = null;
+    }
+}
+
 function shuffle(arr) {
     for (let i = arr.length - 1; i > 0; i--) {
         const j = Math.floor(Math.random() * (i + 1));
@@ -120,9 +127,10 @@ function renderQuestion() {
         showModal('Прогресс теста будет потерян. Выйти?',
             () => {
                 clearInterval(timerInterval);
+                timerInterval = null;
                 navigateTo('tests');
             },
-            () => {} // при отмене ничего не делаем
+            () => {}
         );
     });
     if (!isText) {

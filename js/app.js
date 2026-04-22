@@ -1,6 +1,6 @@
 // app.js
 import { renderGuidesList, renderSections } from './guides.js';
-import { renderTestsList, startTest } from './tests.js';
+import { renderTestsList, startTest, resetTestTimer } from './tests.js';
 
 // Глобальное состояние
 export const state = {
@@ -141,6 +141,7 @@ export function navigateTo(page, id = null) {
 
 function handleRouting() {
     if (!state.dataLoaded) return;
+    resetTestTimer();
     const { page, id } = parseHash();
     state.currentPage = page;
     updateActiveTab(page);
