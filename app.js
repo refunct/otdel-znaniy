@@ -29,7 +29,7 @@ function bind(){
 function onClick(e){
   const t = e.target
 
-  if(t.dataset.page) go(t.dataset.page)
+  if(t.dataset.nav) go(t.dataset.nav)
   if(t.dataset.guide) go("guide", t.dataset.guide)
   if(t.dataset.test) startTest(t.dataset.test)
 
@@ -42,7 +42,7 @@ function onClick(e){
 }
 
 function onInput(e){
-  if(e.target.id === "searchInput"){
+  if(e.target.id === "search"){
     search(e.target.value)
   }
 }
@@ -50,21 +50,16 @@ function onInput(e){
 /* ================= ROUTER ================= */
 
 function go(page,id=null){
-  const url = id ? `?page=${page}&id=${id}` : `?page=${page}`
-  history.pushState({}, "", url)
-
+  history.pushState({}, "", id ? `?page=${page}&id=${id}` : `?page=${page}`)
   state.page = page
   state.id = id
-
   render()
 }
 
 function route(){
   const p = new URLSearchParams(location.search)
-
   state.page = p.get("page") || "guides"
   state.id = p.get("id")
-
   render()
 }
 
@@ -97,16 +92,16 @@ function render(){
   if(state.page === "result") return result()
 }
 
-/* ================= UI ================= */
+/* ================= MOUNT ================= */
 
-function app(html){
+function mount(html){
   document.getElementById("app").innerHTML = html
 }
 
 /* ================= GUIDES ================= */
 
 function renderGuides(){
-  app(`
+  mount(`
     ${state.data.guides.map(g=>`
       <div class="card" data-guide="${g.id}">
         ${g["Название справочника"]}
@@ -122,7 +117,7 @@ function renderGuide(){
     s => String(s["id справочника"]) === String(state.id)
   )
 
-  app(`
+  mount(`
     ${items.map(s=>`
       <div class="card">
         <b>${s["название раздела"]}</b><br><br>
@@ -135,7 +130,7 @@ function renderGuide(){
 /* ================= TESTS ================= */
 
 function renderTests(){
-  app(`
+  mount(`
     ${state.data.tests.map(t=>`
       <div class="card" data-test="${t.id}">
         ${t["название теста"]}
@@ -155,7 +150,7 @@ function startTest(id){
     q => String(q["id теста"]) === String(id)
   )
 
-  go("test",id)
+  go("test", id)
 }
 
 function renderTest(){
@@ -173,7 +168,7 @@ function renderTest(){
 
   const progress = (state.index/state.questions.length)*100
 
-  app(`
+  mount(`
     <div class="progress"><div style="width:${progress}%"></div></div>
 
     <div class="card">
@@ -211,17 +206,17 @@ function result(){
   let correct = 0
 
   state.questions.forEach((q,i)=>{
-    const u = (state.answers[i]||"").toLowerCase()
-    const r = (q["ответ 1"]||"").toLowerCase()
+    const u = (state.answers[i]||"").toLowerCase().trim()
+    const r = (q["ответ 1"]||"").toLowerCase().trim()
     if(u===r) correct++
   })
 
   const percent = Math.round(correct/state.questions.length*100)
 
-  app(`
+  mount(`
     <div class="card">
       <h2>Результат: ${percent}%</h2>
-      <button data-page="tests">Назад</button>
+      <button data-nav="tests">К тестам</button>
     </div>
   `)
 }
@@ -237,7 +232,7 @@ function search(v){
     s => (s["название раздела"]||"").toLowerCase().includes(q)
   )
 
-  app(`
+  mount(`
     ${res.map(s=>`
       <div class="card">${s["название раздела"]}</div>
     `).join("")}

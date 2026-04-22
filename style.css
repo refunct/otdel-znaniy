@@ -10,12 +10,13 @@ body{
   overflow-x:hidden;
 }
 
+/* ОДНА ШАПКА — фиксированная */
 .header{
   position:sticky;
   top:0;
   background:#fff;
   padding:12px;
-  box-shadow:0 2px 10px rgba(0,0,0,.05);
+  border-bottom:1px solid #eee;
 }
 
 .nav{
@@ -29,15 +30,15 @@ body{
   color:#fff;
   border:none;
   padding:8px 12px;
-  border-radius:10px;
+  border-radius:8px;
   cursor:pointer;
 }
 
-#searchInput{
+#search{
   width:100%;
   padding:10px;
   border:1px solid #ddd;
-  border-radius:10px;
+  border-radius:8px;
 }
 
 #app{
@@ -49,21 +50,20 @@ body{
 .card{
   background:#fff;
   padding:14px;
-  border-radius:14px;
+  border-radius:12px;
   margin-bottom:10px;
-  box-shadow:0 3px 10px rgba(0,0,0,.06);
+  box-shadow:0 2px 8px rgba(0,0,0,.06);
   cursor:pointer;
 }
 
 button.answer{
   display:block;
   width:100%;
-  margin-top:6px;
+  margin-top:8px;
   padding:10px;
-  border-radius:10px;
+  border-radius:8px;
   border:1px solid #ddd;
   background:#fff;
-  cursor:pointer;
 }
 
 .progress{
@@ -77,5 +77,4 @@ button.answer{
 .progress div{
   height:100%;
   background:#111;
-  width:0%;
 }
