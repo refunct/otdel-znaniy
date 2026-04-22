@@ -1,19 +1,25 @@
 // sw.js
-const CACHE_NAME = 'knowledge-base-v2';
+const CACHE_NAME = 'knowledge-base-v3';
 const STATIC_ASSETS = [
-    '/',
-    '/index.html',
-    '/style.css',
-    '/app.js',
-    '/xlsx.full.min.js',
-    '/guide.xlsx',
-    '/tests.xlsx'
+    './',
+    './index.html',
+    './style.css',
+    './app.js',
+    './xlsx.full.min.js'
+    // guide.xlsx и tests.xlsx добавляются динамически при успешной загрузке
 ];
 
 self.addEventListener('install', (event) => {
     event.waitUntil(
         caches.open(CACHE_NAME)
-            .then(cache => cache.addAll(STATIC_ASSETS))
+            .then(cache => {
+                // Добавляем только те файлы, которые точно есть
+                return Promise.allSettled(
+                    STATIC_ASSETS.map(url => 
+                        cache.add(url).catch(err => console.warn('Failed to cache:', url, err))
+                    )
+                );
+            })
             .then(() => self.skipWaiting())
     );
 });

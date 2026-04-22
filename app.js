@@ -217,39 +217,39 @@
     }
 
     function renderGuidesList() {
-        const filteredGuides = state.guides;
-        
-        if (filteredGuides.length === 0) {
-            elements.contentContainer.innerHTML = '<div class="empty-state">Справочники не найдены</div>';
-            return;
-        }
-        
-        const html = `
-            <div class="guides-grid">
-                ${filteredGuides.map(guide => `
-                    <div class="guide-card" data-guide-id="${guide.id}">
-                        ${guide.image ? `<img src="${guide.image}" class="card-image" alt="${guide.title}" loading="lazy" onerror="this.src='data:image/svg+xml,%3Csvg xmlns=\'http://www.w3.org/2000/svg\' width=\'300\' height=\'180\' viewBox=\'0 0 300 180\'%3E%3Crect width=\'300\' height=\'180\' fill=\'%23e9ecef\'/%3E%3Ctext x=\'150\' y=\'90\' text-anchor=\'middle\' fill=\'%2395a5a6\' font-size=\'14\'%3EНет изображения%3C/text%3E%3C/svg%3E'">` : 
-                        `<div class="card-image" style="background: #e9ecef; display: flex; align-items: center; justify-content: center; color: #95a5a6;">Нет изображения</div>`}
-                        <div class="card-content">
-                            <h3 class="card-title">${escapeHtml(guide.title || 'Без названия')}</h3>
-                            <div class="card-meta">
-                                ${guide.author ? `<span>${escapeHtml(guide.author)}</span>` : ''}
-                                ${guide.date ? `<span>${escapeHtml(guide.date)}</span>` : ''}
-                            </div>
+    const filteredGuides = state.guides;
+    
+    if (filteredGuides.length === 0) {
+        elements.contentContainer.innerHTML = '<div class="empty-state">Справочники не найдены</div>';
+        return;
+    }
+    
+    const html = `
+        <div class="guides-grid">
+            ${filteredGuides.map(guide => `
+                <div class="guide-card" data-guide-id="${guide.id}">
+                    ${guide.image ? `<img src="${guide.image}" class="card-image" alt="${escapeHtml(guide.title)}" loading="lazy" onerror="this.src='data:image/svg+xml,%3Csvg xmlns=\'http://www.w3.org/2000/svg\' width=\'300\' height=\'180\' viewBox=\'0 0 300 180\'%3E%3Crect width=\'300\' height=\'180\' fill=\'%23e9ecef\'/%3E%3Ctext x=\'150\' y=\'90\' text-anchor=\'middle\' fill=\'%2395a5a6\' font-size=\'14\'%3EНет изображения%3C/text%3E%3C/svg%3E'">` : 
+                    `<div class="card-image" style="background: #e9ecef; display: flex; align-items: center; justify-content: center; color: #95a5a6;">Нет изображения</div>`}
+                    <div class="card-content">
+                        <h3 class="card-title">${escapeHtml(guide.title || 'Без названия')}</h3>
+                        <div class="card-meta">
+                            ${guide.author ? `<span>${escapeHtml(guide.author)}</span>` : ''}
+                            ${guide.date ? `<span>${escapeHtml(guide.date)}</span>` : ''}
                         </div>
                     </div>
-                `).join('')}
-            </div>
-        `;
-        
-        elements.contentContainer.innerHTML = html;
-        
-        document.querySelectorAll('.guide-card').forEach(card => {
-            card.addEventListener('click', () => {
-                navigateTo('guides', card.dataset.guideId);
-            });
+                </div>
+            `).join('')}
+        </div>
+    `;
+    
+    elements.contentContainer.innerHTML = html;
+    
+    document.querySelectorAll('.guide-card').forEach(card => {
+        card.addEventListener('click', () => {
+            navigateTo('guides', card.dataset.guideId);
         });
-    }
+    });
+}
 
     function renderSections() {
         const guide = state.guides.find(g => g.id === state.currentGuideId);
@@ -283,53 +283,53 @@
     }
 
     function renderSection(section) {
-        const images = parseMediaList(section.images);
-        const files = parseMediaList(section.files);
-        const videos = parseMediaList(section.videos);
-        
-        return `
-            <div class="section-card">
-                <h3 class="section-title">${escapeHtml(section.title || 'Без названия')}</h3>
-                <div class="section-content">${processContent(section.content || '')}</div>
-                
-                ${images.length > 0 ? `
-                    <div class="media-section">
-                        <div class="media-title">Изображения</div>
-                        <div class="images-grid">
-                            ${images.map(img => state.isOnline ? 
-                                `<img src="${escapeHtml(img)}" class="section-image" alt="Изображение" loading="lazy" onerror="this.parentElement.innerHTML='<div class=\'offline-placeholder\'>Не удалось загрузить изображение</div>'">` :
-                                '<div class="offline-placeholder">Изображение недоступно в офлайн-режиме</div>'
-                            ).join('')}
-                        </div>
+    const images = parseMediaList(section.images);
+    const files = parseMediaList(section.files);
+    const videos = parseMediaList(section.videos);
+    
+    return `
+        <div class="section-card">
+            <h3 class="section-title">${escapeHtml(section.title || 'Без названия')}</h3>
+            <div class="section-content">${processContent(section.content || '')}</div>
+            
+            ${images.length > 0 ? `
+                <div class="media-section">
+                    <div class="media-title">Изображения</div>
+                    <div class="images-grid">
+                        ${images.map(img => state.isOnline ? 
+                            `<img src="${escapeHtml(img)}" class="section-image" alt="Изображение" loading="lazy" onerror="this.parentElement.innerHTML='<div class=\\'offline-placeholder\\'>Не удалось загрузить изображение</div>'">` :
+                            '<div class="offline-placeholder">Изображение недоступно в офлайн-режиме</div>'
+                        ).join('')}
                     </div>
-                ` : ''}
-                
-                ${files.length > 0 ? `
-                    <div class="media-section">
-                        <div class="media-title">Файлы для скачивания</div>
-                        <ul class="files-list">
-                            ${files.map(file => state.isOnline ?
-                                `<li class="file-item"><a href="${escapeHtml(file)}" class="file-link" download>📄 ${getFileName(file)}</a></li>` :
-                                '<li class="file-item"><span class="offline-placeholder" style="display: inline-block; padding: 8px;">Файл недоступен в офлайн-режиме</span></li>'
-                            ).join('')}
-                        </ul>
-                    </div>
-                ` : ''}
-                
-                ${videos.length > 0 ? `
-                    <div class="media-section">
-                        <div class="media-title">Видео</div>
-                        <ul class="videos-list">
-                            ${videos.map(video => state.isOnline ?
-                                `<li class="video-item"><a href="${escapeHtml(video)}" class="video-link" target="_blank">🎬 ${getFileName(video)}</a></li>` :
-                                '<li class="video-item"><span class="offline-placeholder" style="display: inline-block; padding: 8px;">Видео недоступно в офлайн-режиме</span></li>'
-                            ).join('')}
-                        </ul>
-                    </div>
-                ` : ''}
-            </div>
-        `;
-    }
+                </div>
+            ` : ''}
+            
+            ${files.length > 0 ? `
+                <div class="media-section">
+                    <div class="media-title">Файлы для скачивания</div>
+                    <ul class="files-list">
+                        ${files.map(file => state.isOnline ?
+                            `<li class="file-item"><a href="${escapeHtml(file)}" class="file-link" download>📄 ${getFileName(file)}</a></li>` :
+                            '<li class="file-item"><span class="offline-placeholder" style="display: inline-block; padding: 8px;">Файл недоступен в офлайн-режиме</span></li>'
+                        ).join('')}
+                    </ul>
+                </div>
+            ` : ''}
+            
+            ${videos.length > 0 ? `
+                <div class="media-section">
+                    <div class="media-title">Видео</div>
+                    <ul class="videos-list">
+                        ${videos.map(video => state.isOnline ?
+                            `<li class="video-item"><a href="${escapeHtml(video)}" class="video-link" target="_blank">🎬 ${getFileName(video)}</a></li>` :
+                            '<li class="video-item"><span class="offline-placeholder" style="display: inline-block; padding: 8px;">Видео недоступно в офлайн-режиме</span></li>'
+                        ).join('')}
+                    </ul>
+                </div>
+            ` : ''}
+        </div>
+    `;
+}
 
     function parseMediaList(str) {
         if (!str) return [];
@@ -348,38 +348,38 @@
     }
 
     function renderTestsList() {
-        if (state.tests.length === 0) {
-            elements.contentContainer.innerHTML = '<div class="empty-state">Тесты не найдены</div>';
-            return;
-        }
-        
-        const html = `
-            <div class="tests-grid">
-                ${state.tests.map(test => `
-                    <div class="test-card" data-test-id="${test.id}">
-                        ${test.image ? `<img src="${test.image}" class="card-image" alt="${test.title}" loading="lazy" onerror="this.src='data:image/svg+xml,%3Csvg xmlns=\'http://www.w3.org/2000/svg\' width=\'300\' height=\'180\' viewBox=\'0 0 300 180\'%3E%3Crect width=\'300\' height=\'180\' fill=\'%23e9ecef\'/%3E%3Ctext x=\'150\' y=\'90\' text-anchor=\'middle\' fill=\'%2395a5a6\' font-size=\'14\'%3EНет изображения%3C/text%3E%3C/svg%3E'">` : 
-                        `<div class="card-image" style="background: #e9ecef; display: flex; align-items: center; justify-content: center; color: #95a5a6;">Нет изображения</div>`}
-                        <div class="card-content">
-                            <h3 class="card-title">${escapeHtml(test.title || 'Без названия')}</h3>
-                            <div class="card-meta">
-                                ${test.author ? `<span>${escapeHtml(test.author)}</span>` : ''}
-                                ${test.date ? `<span>${escapeHtml(test.date)}</span>` : ''}
-                                ${test.time_limit && test.time_limit > 0 ? `<span>⏱ ${test.time_limit} мин</span>` : ''}
-                            </div>
+    if (state.tests.length === 0) {
+        elements.contentContainer.innerHTML = '<div class="empty-state">Тесты не найдены</div>';
+        return;
+    }
+    
+    const html = `
+        <div class="tests-grid">
+            ${state.tests.map(test => `
+                <div class="test-card" data-test-id="${test.id}">
+                    ${test.image ? `<img src="${test.image}" class="card-image" alt="${escapeHtml(test.title)}" loading="lazy" onerror="this.src='data:image/svg+xml,%3Csvg xmlns=\'http://www.w3.org/2000/svg\' width=\'300\' height=\'180\' viewBox=\'0 0 300 180\'%3E%3Crect width=\'300\' height=\'180\' fill=\'%23e9ecef\'/%3E%3Ctext x=\'150\' y=\'90\' text-anchor=\'middle\' fill=\'%2395a5a6\' font-size=\'14\'%3EНет изображения%3C/text%3E%3C/svg%3E'">` : 
+                    `<div class="card-image" style="background: #e9ecef; display: flex; align-items: center; justify-content: center; color: #95a5a6;">Нет изображения</div>`}
+                    <div class="card-content">
+                        <h3 class="card-title">${escapeHtml(test.title || 'Без названия')}</h3>
+                        <div class="card-meta">
+                            ${test.author ? `<span>${escapeHtml(test.author)}</span>` : ''}
+                            ${test.date ? `<span>${escapeHtml(test.date)}</span>` : ''}
+                            ${test.time_limit && test.time_limit > 0 ? `<span>⏱ ${test.time_limit} мин</span>` : ''}
                         </div>
                     </div>
-                `).join('')}
-            </div>
-        `;
-        
-        elements.contentContainer.innerHTML = html;
-        
-        document.querySelectorAll('.test-card').forEach(card => {
-            card.addEventListener('click', () => {
-                navigateTo('tests', card.dataset.testId);
-            });
+                </div>
+            `).join('')}
+        </div>
+    `;
+    
+    elements.contentContainer.innerHTML = html;
+    
+    document.querySelectorAll('.test-card').forEach(card => {
+        card.addEventListener('click', () => {
+            navigateTo('tests', card.dataset.testId);
         });
-    }
+    });
+}
 
     function startTest(testId) {
         const test = state.tests.find(t => t.id === testId);
@@ -407,18 +407,18 @@
     }
 
     function shuffleAnswers(question) {
-        if (question.text_answer) return [];
-        
-        const answers = [];
-        for (let i = 1; i <= 6; i++) {
-            const answer = question[`answer${i}`];
-            if (answer && answer.trim()) {
-                answers.push(answer.trim());
-            }
+    if (question.text_answer) return [];
+    
+    const answers = [];
+    for (let i = 1; i <= 6; i++) {
+        const answer = question[`answer${i}`];
+        if (answer !== undefined && answer !== null && String(answer).trim() !== '') {
+            answers.push(String(answer).trim());
         }
-        
-        return shuffleArray(answers);
     }
+    
+    return shuffleArray(answers);
+}
 
     function shuffleArray(arr) {
         const a = [...arr];
