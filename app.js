@@ -143,6 +143,7 @@
         registerServiceWorker();
         setupEventListeners();
         await loadData();
+        addInstallButton();
         handleRouting();
         window.addEventListener('popstate', handleRouting);
         updateOnlineStatus();
@@ -730,25 +731,29 @@
     init();
 })();
 
-// PWA установка - принудительный показ
+// PWA установка
 let deferredPrompt;
+let installPromptShown = false;
 
 window.addEventListener('beforeinstallprompt', (e) => {
     e.preventDefault();
     deferredPrompt = e;
     
-    // Показываем свою кнопку установки
+    // Показываем не сразу, а через 3 секунды после загрузки
     setTimeout(() => {
-        showInstallPrompt();
+        if (deferredPrompt && !installPromptShown && state.dataLoaded) {
+            showInstallPrompt();
+        }
     }, 3000);
 });
 
 function showInstallPrompt() {
     if (!deferredPrompt) return;
+    installPromptShown = true;
     
     elements.modalContent.innerHTML = `
-        <h3 style="margin-bottom: 16px;">📱 Установить приложение</h3>
-        <p>Добавьте "Отдел знаний" на главный экран для быстрого доступа и офлайн-работы</p>
+        <h3 style="margin-bottom: 16px; font-size: 1.5rem;">📱 Установить приложение</h3>
+        <p style="margin-bottom: 20px;">Добавьте "Отдел знаний" на главный экран для быстрого доступа и работы без интернета</p>
         <div class="modal-buttons">
             <button class="modal-btn cancel" id="modalCancel">Позже</button>
             <button class="modal-btn confirm" id="modalInstall">Установить</button>
@@ -759,6 +764,7 @@ function showInstallPrompt() {
     
     document.getElementById('modalCancel').onclick = () => {
         elements.modalOverlay.style.display = 'none';
+        installPromptShown = false;
     };
     
     document.getElementById('modalInstall').onclick = async () => {
@@ -766,11 +772,37 @@ function showInstallPrompt() {
         const { outcome } = await deferredPrompt.userChoice;
         deferredPrompt = null;
         elements.modalOverlay.style.display = 'none';
+        
+        if (outcome === 'accepted') {
+            console.log('PWA установлено');
+        }
     };
 }
 
-// Показывать при возвращении на сайт
-window.addEventListener('appinstalled', () => {
-    deferredPrompt = null;
-    console.log('PWA установлено');
-});
+// Кнопка установки в интерфейсе (опционально)
+function addInstallButton() {
+    const header = elements.header;
+    const installBtn = document.createElement('button');
+    installBtn.id = 'installBtn';
+    installBtn.className = 'install-btn';
+    installBtn.innerHTML = '📱 Установить';
+    installBtn.style.display = 'none';
+    installBtn.onclick = () => {
+        if (deferredPrompt) {
+            showInstallPrompt();
+        } else {
+            alert('Установка недоступна. Возможно, приложение уже установлено.');
+        }
+    };
+    
+    header.appendChild(installBtn);
+    
+    window.addEventListener('beforeinstallprompt', () => {
+        installBtn.style.display = 'block';
+    });
+    
+    window.addEventListener('appinstalled', () => {
+        installBtn.style.display = 'none';
+        deferredPrompt = null;
+    });
+}

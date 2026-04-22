@@ -12,14 +12,12 @@ const STATIC_ASSETS = [
     './tests.xlsx'
 ];
 
-// Функция для вычисления хеша из ArrayBuffer
 async function hashBuffer(buffer) {
     const hashBuffer = await crypto.subtle.digest('SHA-256', buffer);
     const hashArray = Array.from(new Uint8Array(hashBuffer));
     return hashArray.map(b => b.toString(16).padStart(2, '0')).join('');
 }
 
-// Функция для вычисления общего хеша из нескольких хешей
 async function getCombinedHash(hashes) {
     const combined = hashes.join('');
     const encoder = new TextEncoder();
@@ -32,36 +30,41 @@ async function getCombinedHash(hashes) {
 self.addEventListener('install', (event) => {
     event.waitUntil(
         (async () => {
-            const hashes = [];
-            const filesToCache = new Map();
-            
-            // Загружаем все файлы и вычисляем их хеши
-            for (const asset of STATIC_ASSETS) {
-                try {
-                    const response = await fetch(asset);
-                    const buffer = await response.arrayBuffer();
-                    const hash = await hashBuffer(buffer);
-                    hashes.push(hash);
-                    filesToCache.set(asset, buffer);
-                } catch (err) {
-                    console.warn(`Failed to load ${asset}:`, err);
-                    // Если файл не загрузился, используем путь как часть хеша
-                    hashes.push(asset);
+            try {
+                const hashes = [];
+                const filesToCache = new Map();
+                
+                for (const asset of STATIC_ASSETS) {
+                    try {
+                        const response = await fetch(asset);
+                        if (response.ok) {
+                            const buffer = await response.arrayBuffer();
+                            const hash = await hashBuffer(buffer);
+                            hashes.push(hash);
+                            filesToCache.set(asset, buffer);
+                        } else {
+                            hashes.push(asset + Date.now());
+                        }
+                    } catch (err) {
+                        console.warn(`Failed to load ${asset}:`, err);
+                        hashes.push(asset + Date.now());
+                    }
                 }
+                
+                const combinedHash = await getCombinedHash(hashes);
+                CACHE_NAME = `knowledge-base-${combinedHash}`;
+                
+                const cache = await caches.open(CACHE_NAME);
+                
+                for (const [asset, buffer] of filesToCache) {
+                    await cache.put(asset, new Response(buffer));
+                }
+                
+                console.log('SW: Cached', filesToCache.size, 'files in', CACHE_NAME);
+                await self.skipWaiting();
+            } catch (err) {
+                console.error('SW Install error:', err);
             }
-            
-            // Создаём общий хеш из всех хешей
-            const combinedHash = await getCombinedHash(hashes);
-            CACHE_NAME = `knowledge-base-${combinedHash}`;
-            
-            const cache = await caches.open(CACHE_NAME);
-            
-            // Кешируем все файлы
-            for (const [asset, buffer] of filesToCache) {
-                await cache.put(asset, new Response(buffer));
-            }
-            
-            await self.skipWaiting();
         })()
     );
 });
@@ -71,7 +74,10 @@ self.addEventListener('activate', (event) => {
         caches.keys().then(keys => 
             Promise.all(
                 keys.filter(key => key.startsWith('knowledge-base-'))
-                    .map(key => caches.delete(key))
+                    .map(key => {
+                        console.log('SW: Deleting old cache', key);
+                        return caches.delete(key);
+                    })
             )
         ).then(() => self.clients.claim())
     );
@@ -80,7 +86,6 @@ self.addEventListener('activate', (event) => {
 self.addEventListener('fetch', (event) => {
     const url = new URL(event.request.url);
     
-    // Проверяем, есть ли файл в списке статики
     const isStaticAsset = STATIC_ASSETS.some(asset => 
         url.pathname.endsWith(asset.replace('./', '')) || 
         url.pathname.endsWith(asset)
@@ -89,12 +94,27 @@ self.addEventListener('fetch', (event) => {
     if (isStaticAsset) {
         event.respondWith(
             caches.match(event.request)
-                .then(response => response || fetch(event.request))
+                .then(response => {
+                    if (response) {
+                        return response;
+                    }
+                    return fetch(event.request).then(fetchResponse => {
+                        if (!fetchResponse || fetchResponse.status !== 200) {
+                            return fetchResponse;
+                        }
+                        return caches.open(CACHE_NAME).then(cache => {
+                            cache.put(event.request, fetchResponse.clone());
+                            return fetchResponse;
+                        });
+                    });
+                })
+                .catch(() => {
+                    return caches.match(event.request);
+                })
         );
         return;
     }
     
-    // Остальное - network first
     event.respondWith(
         fetch(event.request)
             .catch(() => caches.match(event.request))

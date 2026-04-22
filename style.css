@@ -654,3 +654,35 @@ body {
         width: 100%;
     }
 }
+
+.install-btn {
+    position: fixed;
+    bottom: 20px;
+    right: 20px;
+    background: var(--primary);
+    color: white;
+    border: none;
+    padding: 12px 20px;
+    border-radius: 30px;
+    font-size: 1rem;
+    font-weight: 600;
+    box-shadow: var(--shadow-hover);
+    cursor: pointer;
+    z-index: 90;
+    transition: all 0.2s;
+    border: 2px solid white;
+}
+
+.install-btn:hover {
+    transform: scale(1.05);
+    background: var(--primary-light);
+}
+
+@media (max-width: 600px) {
+    .install-btn {
+        bottom: 16px;
+        right: 16px;
+        padding: 10px 16px;
+        font-size: 0.9rem;
+    }
+}
