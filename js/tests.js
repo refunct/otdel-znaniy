@@ -1,5 +1,5 @@
 // tests.js
-import { state, elements, escapeHtml, navigateTo, formatExcelDate } from './app.js';
+import { state, elements, escapeHtml, navigateTo, formatExcelDate, showModal } from './app.js';
 
 let timerInterval = null;
 let testState = {
@@ -117,10 +117,13 @@ function renderQuestion() {
     elements.contentContainer.innerHTML = html;
     if (test.time_limit > 0) startTimer(test.time_limit * 60);
     document.getElementById('exitTest').addEventListener('click', () => {
-        if (confirm('Прогресс будет потерян. Выйти?')) {
-            clearInterval(timerInterval);
-            navigateTo('tests');
-        }
+        showModal('Прогресс теста будет потерян. Выйти?',
+            () => {
+                clearInterval(timerInterval);
+                navigateTo('tests');
+            },
+            () => {} // при отмене ничего не делаем
+        );
     });
     if (!isText) {
         document.querySelectorAll('.answer-item').forEach(el => el.addEventListener('click', () => {

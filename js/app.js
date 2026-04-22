@@ -50,6 +50,31 @@ export function formatExcelDate(excelDate) {
     return date.toLocaleDateString('ru-RU');
 }
 
+export function showModal(message, onConfirm, onCancel) {
+    elements.modalContent.innerHTML = `
+        <p>${escapeHtml(message)}</p>
+        <div class="modal-buttons">
+            <button class="modal-btn cancel" id="modalCancel">Отмена</button>
+            <button class="modal-btn confirm" id="modalConfirm">Да</button>
+        </div>
+    `;
+    elements.modalOverlay.style.display = 'flex';
+    document.getElementById('modalCancel').onclick = () => {
+        elements.modalOverlay.style.display = 'none';
+        if (onCancel) onCancel();
+    };
+    document.getElementById('modalConfirm').onclick = () => {
+        elements.modalOverlay.style.display = 'none';
+        if (onConfirm) onConfirm();
+    };
+    elements.modalOverlay.onclick = (e) => {
+        if (e.target === elements.modalOverlay) {
+            elements.modalOverlay.style.display = 'none';
+            if (onCancel) onCancel();
+        }
+    };
+}
+
 // Загрузка Excel
 async function loadExcel(filename) {
     return new Promise((resolve, reject) => {
