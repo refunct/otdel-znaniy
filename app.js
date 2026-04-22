@@ -297,7 +297,7 @@
                     <div class="media-title">Изображения</div>
                     <div class="images-grid">
                         ${images.map(img => state.isOnline ? 
-                            `<img src="${escapeHtml(img)}" class="section-image" alt="Изображение" loading="lazy" onerror="this.parentElement.innerHTML='<div class=\\'offline-placeholder\\'>Не удалось загрузить изображение</div>'">` :
+                            `<img src="${escapeHtml(img)}" class="section-image" alt="Изображение" loading="lazy" onerror="this.style.display='none'">` :
                             '<div class="offline-placeholder">Изображение недоступно в офлайн-режиме</div>'
                         ).join('')}
                     </div>
@@ -577,60 +577,60 @@
     }
 
     function finishTest(isTimeout) {
-        if (timerInterval) {
-            clearInterval(timerInterval);
-            timerInterval = null;
-        }
-        
-        const questions = state.testQuestions;
-        let correct = 0;
-        
-        questions.forEach(q => {
-            const userAnswer = state.testAnswers[q.id] || '';
-            const correctAnswer = (q.answer1 || '').trim();
-            
-            if (q.text_answer) {
-                if (userAnswer.trim().toLowerCase() === correctAnswer.toLowerCase()) {
-                    correct++;
-                }
-            } else {
-                if (userAnswer.trim().toLowerCase() === correctAnswer.toLowerCase()) {
-                    correct++;
-                }
-            }
-        });
-        
-        const percent = Math.round((correct / questions.length) * 100);
-        
-        let percentClass = 'bad';
-        if (percent >= 70) percentClass = 'good';
-        else if (percent >= 40) percentClass = 'medium';
-        
-        const html = `
-            <div class="test-container">
-                <button class="back-button" id="backToTests">← К списку тестов</button>
-                
-                <div class="result-card">
-                    <h2>Тест завершен${isTimeout ? ' (время вышло)' : ''}</h2>
-                    <div class="result-percent ${percentClass}">${percent}%</div>
-                    <div class="result-details">
-                        Правильных ответов: ${correct} из ${questions.length}
-                    </div>
-                    <button class="nav-test-btn primary" id="retakeTest">Пройти заново</button>
-                </div>
-            </div>
-        `;
-        
-        elements.contentContainer.innerHTML = html;
-        
-        document.getElementById('backToTests')?.addEventListener('click', () => {
-            navigateTo('tests');
-        });
-        
-        document.getElementById('retakeTest')?.addEventListener('click', () => {
-            startTest(state.currentTestId);
-        });
+    if (timerInterval) {
+        clearInterval(timerInterval);
+        timerInterval = null;
     }
+    
+    const questions = state.testQuestions;
+    let correct = 0;
+    
+    questions.forEach(q => {
+        const userAnswer = String(state.testAnswers[q.id] || '').trim();
+        const correctAnswer = String(q.answer1 || '').trim();
+        
+        if (q.text_answer) {
+            if (userAnswer.toLowerCase() === correctAnswer.toLowerCase()) {
+                correct++;
+            }
+        } else {
+            if (userAnswer.toLowerCase() === correctAnswer.toLowerCase()) {
+                correct++;
+            }
+        }
+    });
+    
+    const percent = Math.round((correct / questions.length) * 100);
+    
+    let percentClass = 'bad';
+    if (percent >= 70) percentClass = 'good';
+    else if (percent >= 40) percentClass = 'medium';
+    
+    const html = `
+        <div class="test-container">
+            <button class="back-button" id="backToTests">← К списку тестов</button>
+            
+            <div class="result-card">
+                <h2>Тест завершен${isTimeout ? ' (время вышло)' : ''}</h2>
+                <div class="result-percent ${percentClass}">${percent}%</div>
+                <div class="result-details">
+                    Правильных ответов: ${correct} из ${questions.length}
+                </div>
+                <button class="nav-test-btn primary" id="retakeTest">Пройти заново</button>
+            </div>
+        </div>
+    `;
+    
+    elements.contentContainer.innerHTML = html;
+    
+    document.getElementById('backToTests')?.addEventListener('click', () => {
+        navigateTo('tests');
+    });
+    
+    document.getElementById('retakeTest')?.addEventListener('click', () => {
+        startTest(state.currentTestId);
+    });
+}
 
     function showConfirmModal(message, onConfirm) {
         elements.modalContent.innerHTML = `
