@@ -1,6 +1,6 @@
 // app.js
 import { renderGuidesList, renderSections } from './guides.js';
-import { renderTestsList, startTest, resetTestTimer } from './tests.js';
+import { renderTestsList, startTest } from './tests.js';
 
 // Глобальное состояние
 export const state = {
@@ -50,64 +50,57 @@ export function formatExcelDate(excelDate) {
     return date.toLocaleDateString('ru-RU');
 }
 
-export function showModal(message, onConfirm, onCancel) {
-    elements.modalContent.innerHTML = `
-        <p>${escapeHtml(message)}</p>
-        <div class="modal-buttons">
-            <button class="modal-btn cancel" id="modalCancel">Отмена</button>
-            <button class="modal-btn confirm" id="modalConfirm">Да</button>
-        </div>
-    `;
-    elements.modalOverlay.style.display = 'flex';
-    document.getElementById('modalCancel').onclick = () => {
-        elements.modalOverlay.style.display = 'none';
-        if (onCancel) onCancel();
-    };
-    document.getElementById('modalConfirm').onclick = () => {
-        elements.modalOverlay.style.display = 'none';
-        if (onConfirm) onConfirm();
-    };
-    elements.modalOverlay.onclick = (e) => {
-        if (e.target === elements.modalOverlay) {
-            elements.modalOverlay.style.display = 'none';
-            if (onCancel) onCancel();
-        }
-    };
-}
-
-// Загрузка Excel
+// Загрузка Excel через fetch
 async function loadExcel(filename) {
-    try {
-        const response = await fetch(filename);
-        if (!response.ok) throw new Error(`HTTP ${response.status}`);
-        const buffer = await response.arrayBuffer();
-        const data = new Uint8Array(buffer);
-        const workbook = XLSX.read(data, { type: 'array' });
-        const result = {};
-        workbook.SheetNames.forEach(sheetName => {
-            result[sheetName] = XLSX.utils.sheet_to_json(workbook.Sheets[sheetName]);
-        });
-        return result;
-    } catch (e) {
-        console.error(`Failed to load ${filename}:`, e);
-        throw e;
-    }
+    const response = await fetch(filename);
+    if (!response.ok) throw new Error(`HTTP ${response.status}`);
+    const buffer = await response.arrayBuffer();
+    const data = new Uint8Array(buffer);
+    const workbook = XLSX.read(data, { type: 'array' });
+    const result = {};
+    workbook.SheetNames.forEach(sheetName => {
+        result[sheetName] = XLSX.utils.sheet_to_json(workbook.Sheets[sheetName]);
+    });
+    return result;
 }
 
+// Загрузка всех данных с таймаутом и обработкой ошибок
 async function loadData() {
-    const timeoutPromise = new Promise((_, reject) => 
-        setTimeout(() => reject(new Error('Timeout loading data')), 15000)
+    const timeoutPromise = new Promise((_, reject) =>
+        setTimeout(() => reject(new Error('Timeout')), 15000)
     );
     try {
         const [guidesData, testsData] = await Promise.race([
             Promise.all([loadExcel('docs/guide.xlsx'), loadExcel('docs/tests.xlsx')]),
             timeoutPromise
         ]);
-        // ... обработка данных
+
+        state.guides = (guidesData.guides || []).map(g => ({ ...g, id: String(g.id) }));
+        state.sections = (guidesData.sections || []).map(s => ({ ...s, id: String(s.id), guide_id: String(s.guide_id) }));
+        state.tests = (testsData.tests || []).map(t => ({ ...t, id: String(t.id) }));
+        state.questions = (testsData.questions || []).map(q => ({ ...q, id: String(q.id), test_id: String(q.test_id) }));
+
+        state.dataLoaded = true;
+        elements.loader.style.display = 'none';
+        handleRouting();
     } catch (error) {
-        console.error(error);
-        elements.loader.innerHTML = '<div class="empty-state">❌ Не удалось загрузить данные. Проверьте интернет.</div>';
+        console.error('Load error:', error);
+        showRetryButton();
     }
+}
+
+function showRetryButton() {
+    elements.loader.innerHTML = `
+        <div class="empty-state">
+            ❌ Не удалось загрузить данные<br>
+            <button id="retryLoadBtn" class="nav-test-btn primary" style="margin-top:20px;">Повторить</button>
+        </div>
+    `;
+    document.getElementById('retryLoadBtn').addEventListener('click', () => {
+        elements.loader.innerHTML = 'Загрузка данных...';
+        elements.loader.style.display = 'block';
+        loadData();
+    });
 }
 
 // Роутинг
@@ -133,7 +126,6 @@ export function navigateTo(page, id = null) {
 
 function handleRouting() {
     if (!state.dataLoaded) return;
-    resetTestTimer();
     const { page, id } = parseHash();
     state.currentPage = page;
     updateActiveTab(page);
@@ -148,8 +140,8 @@ function handleRouting() {
         }
     } else if (page === 'tests') {
         if (id) {
-            state.currentTestId = String(id);
-            startTest(String(id));
+            state.currentTestId = id;
+            startTest(id);
         } else {
             state.currentTestId = null;
             renderTestsList();
@@ -157,7 +149,33 @@ function handleRouting() {
     }
 }
 
-// PWA установка
+// Универсальное модальное окно
+export function showModal(message, onConfirm, onCancel) {
+    elements.modalContent.innerHTML = `
+        <p>${escapeHtml(message)}</p>
+        <div class="modal-buttons">
+            <button class="modal-btn cancel" id="modalCancel">Отмена</button>
+            <button class="modal-btn confirm" id="modalConfirm">Да</button>
+        </div>
+    `;
+    elements.modalOverlay.style.display = 'flex';
+    document.getElementById('modalCancel').onclick = () => {
+        elements.modalOverlay.style.display = 'none';
+        if (onCancel) onCancel();
+    };
+    document.getElementById('modalConfirm').onclick = () => {
+        elements.modalOverlay.style.display = 'none';
+        if (onConfirm) onConfirm();
+    };
+    elements.modalOverlay.onclick = (e) => {
+        if (e.target === elements.modalOverlay) {
+            elements.modalOverlay.style.display = 'none';
+            if (onCancel) onCancel();
+        }
+    };
+}
+
+// PWA установка (без Service Worker)
 let deferredPrompt;
 let installPromptShown = false;
 
@@ -176,7 +194,7 @@ function showInstallPrompt() {
     installPromptShown = true;
     elements.modalContent.innerHTML = `
         <h3 style="margin-bottom:16px;">📱 Установить приложение</h3>
-        <p>Добавьте "Отдел знаний" на главный экран для быстрого доступа и работы без интернета</p>
+        <p>Добавьте "Отдел знаний" на главный экран для быстрого доступа</p>
         <div class="modal-buttons">
             <button class="modal-btn cancel" id="modalCancel">Закрыть</button>
             <button class="modal-btn confirm" id="modalInstall">Установить</button>
@@ -185,33 +203,28 @@ function showInstallPrompt() {
     elements.modalOverlay.style.display = 'flex';
     document.getElementById('modalCancel').onclick = () => {
         elements.modalOverlay.style.display = 'none';
-        installPromptShown = false; // Появится при следующем обновлении
+        installPromptShown = false;
     };
     document.getElementById('modalInstall').onclick = async () => {
         deferredPrompt.prompt();
         const { outcome } = await deferredPrompt.userChoice;
         deferredPrompt = null;
         elements.modalOverlay.style.display = 'none';
-        if (outcome === 'accepted') installPromptShown = true; // больше не показывать
+        if (outcome === 'accepted') installPromptShown = true;
     };
-}
-
-// Service Worker
-if ('serviceWorker' in navigator) {
-    navigator.serviceWorker.register('sw.js').catch(console.warn);
 }
 
 // Инициализация
 async function init() {
     setupPWA();
     window.addEventListener('hashchange', handleRouting);
-    await loadData();
     elements.navTabs.addEventListener('click', (e) => {
         const btn = e.target.closest('.nav-btn');
         if (!btn) return;
         const page = btn.dataset.page;
         if (page) navigateTo(page);
     });
+    await loadData();
 }
 
 init();
