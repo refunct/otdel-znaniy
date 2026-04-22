@@ -188,6 +188,12 @@ async function init() {
     setupPWA();
     window.addEventListener('hashchange', handleRouting);
     await loadData();
+    elements.navTabs.addEventListener('click', (e) => {
+        const btn = e.target.closest('.nav-btn');
+        if (!btn) return;
+        const page = btn.dataset.page;
+        if (page) navigateTo(page);
+    });
 }
 
 init();
