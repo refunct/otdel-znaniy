@@ -1,8 +1,9 @@
+
 /* ===================== STATE ===================== */
 
 const state = {
   data: null,
-  page: 'home',
+  page: 'guides', // 👈 ГЛАВНАЯ СТРАНИЦА = справочники
   id: null,
   testId: null,
   questions: [],
@@ -17,7 +18,7 @@ window.addEventListener('DOMContentLoaded', init)
 async function init() {
   bindEvents()
   await loadData()
-  router()
+  router(true)
 }
 
 /* ===================== EVENTS ===================== */
@@ -25,29 +26,24 @@ async function init() {
 function bindEvents() {
   document.addEventListener('click', handleClick)
   document.addEventListener('input', handleInput)
-  window.addEventListener('popstate', router)
+  window.addEventListener('popstate', () => router(false))
 }
 
 function handleClick(e) {
   const t = e.target
 
-  if (t.dataset.page) {
-    go(t.dataset.page)
-  }
+  // Навигация
+  if (t.dataset.nav) go(t.dataset.nav)
+  if (t.dataset.guide) go('guide', t.dataset.guide)
+  if (t.dataset.test) startTest(t.dataset.test)
 
-  if (t.dataset.guide) {
-    go('guide', t.dataset.guide)
-  }
-
-  if (t.dataset.test) {
-    startTest(t.dataset.test)
-  }
-
+  // тест
   if (t.id === 'nextBtn') nextQuestion()
   if (t.id === 'prevBtn') prevQuestion()
-}
 
-/* ===================== INPUT ===================== */
+  // очистка кеша вручную (скрытая кнопка, если понадобится)
+  if (t.id === 'clearCache') clearCache()
+}
 
 function handleInput(e) {
   if (e.target.id === 'searchInput') {
@@ -58,29 +54,33 @@ function handleInput(e) {
 /* ===================== ROUTER ===================== */
 
 function go(page, id = null) {
+  state.page = page
+  state.id = id
+
   const url = id ? `?page=${page}&id=${id}` : `?page=${page}`
   history.pushState({}, '', url)
-  router()
+
+  render()
 }
 
-function router() {
+function router(shouldReplace = false) {
   const p = new URLSearchParams(location.search)
 
-  state.page = p.get('page') || 'home'
+  state.page = p.get('page') || 'guides' // 👈 default = справочники
   state.id = p.get('id')
 
   render()
 }
 
-/* ===================== DATA ===================== */
+/* ===================== LOAD DATA ===================== */
 
 async function loadData() {
   try {
-    const g = await fetch('guide.xlsx').then(r => r.arrayBuffer())
-    const t = await fetch('tests.xlsx').then(r => r.arrayBuffer())
+    const guide = await fetch('guide.xlsx', { cache: "no-store" }).then(r => r.arrayBuffer())
+    const test = await fetch('tests.xlsx', { cache: "no-store" }).then(r => r.arrayBuffer())
 
-    const wb1 = XLSX.read(g)
-    const wb2 = XLSX.read(t)
+    const wb1 = XLSX.read(guide)
+    const wb2 = XLSX.read(test)
 
     state.data = {
       guides: XLSX.utils.sheet_to_json(wb1.Sheets[wb1.SheetNames[0]]),
@@ -101,8 +101,6 @@ function render() {
   if (!state.data) return
 
   switch (state.page) {
-    case 'home':
-      return mount(`<div class="card">Отдел знаний</div>`)
 
     case 'guides':
       return renderGuides()
@@ -118,8 +116,13 @@ function render() {
 
     case 'result':
       return renderResult()
+
+    default:
+      return renderGuides()
   }
 }
+
+/* ===================== UI MOUNT ===================== */
 
 function mount(html) {
   const app = document.getElementById('app')
@@ -127,10 +130,25 @@ function mount(html) {
   app.innerHTML = html
 }
 
+/* ===================== HEADER UI FIX ===================== */
+
+function header() {
+  return `
+    <div class="nav">
+      <button data-nav="guides">Справочники</button>
+      <button data-nav="tests">Тесты</button>
+    </div>
+
+    <input id="searchInput" placeholder="Поиск..." />
+  `
+}
+
 /* ===================== GUIDES ===================== */
 
 function renderGuides() {
   mount(`
+    ${header()}
+
     ${state.data.guides.map(g => `
       <div class="card" data-guide="${g.id}">
         ${g['Название справочника']}
@@ -139,12 +157,16 @@ function renderGuides() {
   `)
 }
 
+/* ===================== GUIDE ===================== */
+
 function renderGuide() {
   const items = state.data.sections.filter(
     s => String(s['id справочника']) === String(state.id)
   )
 
   mount(`
+    ${header()}
+
     ${items.map(s => `
       <div class="card">
         <h3>${s['название раздела']}</h3>
@@ -158,6 +180,8 @@ function renderGuide() {
 
 function renderTests() {
   mount(`
+    ${header()}
+
     ${state.data.tests.map(t => `
       <div class="card" data-test="${t.id}">
         ${t['название теста']}
@@ -182,7 +206,6 @@ function startTest(id) {
 
 function renderTest() {
   const q = state.questions[state.index]
-
   if (!q) return go('result')
 
   let answers = [
@@ -197,6 +220,8 @@ function renderTest() {
   answers.sort(() => Math.random() - 0.5)
 
   mount(`
+    ${header()}
+
     <div class="card">
       <h3>${q['вопрос']}</h3>
 
@@ -254,25 +279,29 @@ function renderResult() {
   const percent = Math.round((correct / state.questions.length) * 100)
 
   mount(`
+    ${header()}
+
     <div class="card">
       <h2>Результат: ${percent}%</h2>
-      <button data-page="tests">К тестам</button>
+      <button data-nav="tests">К тестам</button>
     </div>
   `)
 }
 
 /* ===================== SEARCH ===================== */
 
-function search(value) {
-  if (!value) return render()
+function search(v) {
+  if (!v) return render()
 
-  const v = value.toLowerCase()
+  const q = v.toLowerCase()
 
   const filtered = state.data.sections.filter(s =>
-    (s['название раздела'] || '').toLowerCase().includes(v)
+    (s['название раздела'] || '').toLowerCase().includes(q)
   )
 
   mount(`
+    ${header()}
+
     ${filtered.map(s => `
       <div class="card">${s['название раздела']}</div>
     `).join('')}
@@ -286,6 +315,16 @@ function format(t = '') {
     .replace(/<q>(.*?)<\/q>/g, `<div class="quote">$1</div>`)
     .replace(/<note>(.*?)<\/note>/g, `<div class="note">$1</div>`)
     .replace(/<warn>(.*?)<\/warn>/g, `<div class="warn">$1</div>`)
+}
+
+/* ===================== CACHE CONTROL ===================== */
+
+function clearCache() {
+  if ('caches' in window) {
+    caches.keys().then(keys => {
+      keys.forEach(k => caches.delete(k))
+    })
+  }
 }
 
 /* ===================== SW ===================== */

@@ -1,6 +1,6 @@
 self.addEventListener('install',e=>{
   e.waitUntil(
-    caches.open('v7').then(c=>c.addAll([
+    caches.open('v8').then(c=>c.addAll([
       './',
       './index.html',
       './style.css',
