@@ -15,17 +15,10 @@
         currentQuestionIndex: 0,
         testAnswers: {},
         testStartTime: null,
+        testQuestions: [], // было упущено при инициализации
         searchQuery: '',
         isOnline: navigator.onLine
     };
-
-    function formatExcelDate(excelDate) {
-        if (!excelDate) return '';
-        if (typeof excelDate === 'string') return excelDate;
-        
-        const date = new Date((excelDate - 25569) * 86400 * 1000);
-        return date.toLocaleDateString('ru-RU');
-    }
 
     // DOM элементы
     const elements = {
@@ -38,6 +31,58 @@
         modalOverlay: document.getElementById('modalOverlay'),
         modalContent: document.getElementById('modalContent')
     };
+
+    let timerInterval = null;
+
+    // Вспомогательные функции
+    function formatExcelDate(excelDate) {
+        if (!excelDate) return '';
+        if (typeof excelDate === 'string') return excelDate;
+        const date = new Date((excelDate - 25569) * 86400 * 1000);
+        return date.toLocaleDateString('ru-RU');
+    }
+
+    function escapeHtml(text) {
+        if (!text) return '';
+        const div = document.createElement('div');
+        div.textContent = text;
+        return div.innerHTML;
+    }
+
+    function parseMediaList(str) {
+        if (!str) return [];
+        return str.split(',').map(s => s.trim()).filter(s => s.length > 0);
+    }
+
+    function getFileName(path) {
+        const parts = String(path).split('/');
+        return parts[parts.length - 1] || 'Файл';
+    }
+
+    function processContent(content) {
+        return content || '';
+    }
+
+    function shuffleArray(arr) {
+        const a = [...arr];
+        for (let i = a.length - 1; i > 0; i--) {
+            const j = Math.floor(Math.random() * (i + 1));
+            [a[i], a[j]] = [a[j], a[i]];
+        }
+        return a;
+    }
+
+    function shuffleAnswers(question) {
+        if (question.text_answer) return [];
+        const answers = [];
+        for (let i = 1; i <= 6; i++) {
+            const answer = question[`answer${i}`];
+            if (answer !== undefined && answer !== null && String(answer).trim() !== '') {
+                answers.push(String(answer).trim());
+            }
+        }
+        return shuffleArray(answers);
+    }
 
     // Инициализация
     async function init() {
@@ -89,13 +134,13 @@
             ]);
 
             if (guidesData) {
-                state.guides = guidesData.guides || [];
-                state.sections = guidesData.sections || [];
+                state.guides = (guidesData.guides || []).map(g => ({ ...g, id: String(g.id) }));
+                state.sections = (guidesData.sections || []).map(s => ({ ...s, id: String(s.id), guide_id: String(s.guide_id) }));
             }
 
             if (testsData) {
-                state.tests = testsData.tests || [];
-                state.questions = testsData.questions || [];
+                state.tests = (testsData.tests || []).map(t => ({ ...t, id: String(t.id) }));
+                state.questions = (testsData.questions || []).map(q => ({ ...q, id: String(q.id), test_id: String(q.test_id) }));
             }
 
             state.dataLoaded = true;
@@ -123,25 +168,7 @@
                         workbook.SheetNames.forEach(sheetName => {
                             const sheet = workbook.Sheets[sheetName];
                             const jsonData = XLSX.utils.sheet_to_json(sheet);
-                            
-                            if (sheetName === 'guides' || sheetName === 'tests') {
-                                result[sheetName] = jsonData.map(row => ({
-                                    ...row,
-                                    id: String(row.id || '')
-                                }));
-                            } else if (sheetName === 'sections') {
-                                result[sheetName] = jsonData.map(row => ({
-                                    ...row,
-                                    id: String(row.id || ''),
-                                    guide_id: String(row.guide_id || '')
-                                }));
-                            } else if (sheetName === 'questions') {
-                                result[sheetName] = jsonData.map(row => ({
-                                    ...row,
-                                    id: String(row.id || ''),
-                                    test_id: String(row.test_id || '')
-                                }));
-                            }
+                            result[sheetName] = jsonData;
                         });
                         
                         resolve(result);
@@ -160,11 +187,6 @@
 
     function hideLoader() {
         elements.loader.style.display = 'none';
-    }
-
-    function showLoader() {
-        elements.loader.style.display = 'block';
-        elements.contentContainer.innerHTML = '';
     }
 
     function showError(message) {
@@ -205,7 +227,6 @@
         state.currentPage = page;
         updateActiveTab(page);
         
-        // Очищаем таймер при любом переходе
         if (timerInterval) {
             clearInterval(timerInterval);
             timerInterval = null;
@@ -231,48 +252,48 @@
     }
 
     function renderGuidesList() {
-    const filteredGuides = state.guides;
-    
-    if (filteredGuides.length === 0) {
-        elements.contentContainer.innerHTML = '<div class="empty-state">Справочники не найдены</div>';
-        return;
-    }
-    
-    const html = `
-        <div class="guides-grid">
-            ${filteredGuides.map(guide => `
-                <div class="guide-card" data-guide-id="${guide.id}">
-                    ${guide.image ? `<img src="${guide.image}" class="card-image" alt="${escapeHtml(guide.title)}" loading="lazy" onerror="this.src='data:image/svg+xml,%3Csvg xmlns=\'http://www.w3.org/2000/svg\' width=\'300\' height=\'180\' viewBox=\'0 0 300 180\'%3E%3Crect width=\'300\' height=\'180\' fill=\'%23e9ecef\'/%3E%3Ctext x=\'150\' y=\'90\' text-anchor=\'middle\' fill=\'%2395a5a6\' font-size=\'14\'%3EНет изображения%3C/text%3E%3C/svg%3E'">` : 
-                    `<div class="card-image" style="background: #e9ecef; display: flex; align-items: center; justify-content: center; color: #95a5a6;">Нет изображения</div>`}
-                    <div class="card-content">
-                        <h3 class="card-title">${escapeHtml(guide.title || 'Без названия')}</h3>
-                        <div class="card-meta">
-                            ${guide.author ? `<span>${escapeHtml(guide.author)}</span>` : ''}
-                            ${guide.date ? `<span>${formatExcelDate(guide.date)}</span>` : ''}
+        const filteredGuides = state.guides;
+        
+        if (filteredGuides.length === 0) {
+            elements.contentContainer.innerHTML = '<div class="empty-state">Справочники не найдены</div>';
+            return;
+        }
+        
+        const html = `
+            <div class="guides-grid">
+                ${filteredGuides.map(guide => `
+                    <div class="guide-card" data-guide-id="${guide.id}">
+                        ${guide.image ? `<img src="${escapeHtml(guide.image)}" class="card-image" alt="${escapeHtml(guide.title)}" loading="lazy" onerror="this.style.display='none'">` : 
+                        `<div class="card-image" style="background: #e9ecef; display: flex; align-items: center; justify-content: center; color: #95a5a6;">Нет изображения</div>`}
+                        <div class="card-content">
+                            <h3 class="card-title">${escapeHtml(guide.title || 'Без названия')}</h3>
+                            <div class="card-meta">
+                                ${guide.author ? `<span>${escapeHtml(guide.author)}</span>` : ''}
+                                ${guide.date ? `<span>${formatExcelDate(guide.date)}</span>` : ''}
+                            </div>
                         </div>
                     </div>
-                </div>
-            `).join('')}
-        </div>
-    `;
-    
-    elements.contentContainer.innerHTML = html;
-    
-    document.querySelectorAll('.guide-card').forEach(card => {
-        card.addEventListener('click', () => {
-            navigateTo('guides', card.dataset.guideId);
+                `).join('')}
+            </div>
+        `;
+        
+        elements.contentContainer.innerHTML = html;
+        
+        document.querySelectorAll('.guide-card').forEach(card => {
+            card.addEventListener('click', () => {
+                navigateTo('guides', card.dataset.guideId);
+            });
         });
-    });
-}
+    }
 
     function renderSections() {
-        const guide = state.guides.find(g => g.id === state.currentGuideId);
+        const guide = state.guides.find(g => String(g.id) === String(state.currentGuideId));
         if (!guide) {
             navigateTo('guides');
             return;
         }
         
-        let sections = state.sections.filter(s => s.guide_id === state.currentGuideId);
+        let sections = state.sections.filter(s => String(s.guide_id) === String(state.currentGuideId));
         
         if (state.searchQuery) {
             sections = sections.filter(s => 
@@ -311,7 +332,7 @@
                         <div class="media-title">Изображения</div>
                         <div class="images-grid">
                             ${images.map(img => state.isOnline ? 
-                                `<img src="${escapeHtml(img)}" class="section-image" alt="Изображение" loading="lazy" onerror="this.style.display='none'">` :
+                                `<img src="${escapeHtml(img)}" class="section-image" alt="Изображение" loading="lazy" onerror="this.parentElement.innerHTML='<div class=\\'offline-placeholder\\'>Не удалось загрузить изображение</div>'">` :
                                 '<div class="offline-placeholder">Изображение недоступно в офлайн-режиме</div>'
                             ).join('')}
                         </div>
@@ -345,111 +366,65 @@
         `;
     }
 
-    function parseMediaList(str) {
-        if (!str) return [];
-        return str.split(',').map(s => s.trim()).filter(s => s.length > 0);
-    }
-
-    function getFileName(path) {
-        const parts = path.split('/');
-        return parts[parts.length - 1] || 'Файл';
-    }
-
-    function processContent(content) {
-        if (!content) return '';
-        // q тег уже обрабатывается CSS, просто возвращаем как есть
-        return content;
-    }
-
     function renderTestsList() {
-    if (state.tests.length === 0) {
-        elements.contentContainer.innerHTML = '<div class="empty-state">Тесты не найдены</div>';
-        return;
-    }
-    
-    const html = `
-        <div class="tests-grid">
-            ${state.tests.map(test => `
-                <div class="test-card" data-test-id="${test.id}">
-                    ${test.image ? `<img src="${test.image}" class="card-image" alt="${escapeHtml(test.title)}" loading="lazy" onerror="this.src='data:image/svg+xml,%3Csvg xmlns=\'http://www.w3.org/2000/svg\' width=\'300\' height=\'180\' viewBox=\'0 0 300 180\'%3E%3Crect width=\'300\' height=\'180\' fill=\'%23e9ecef\'/%3E%3Ctext x=\'150\' y=\'90\' text-anchor=\'middle\' fill=\'%2395a5a6\' font-size=\'14\'%3EНет изображения%3C/text%3E%3C/svg%3E'">` : 
-                    `<div class="card-image" style="background: #e9ecef; display: flex; align-items: center; justify-content: center; color: #95a5a6;">Нет изображения</div>`}
-                    <div class="card-content">
-                        <h3 class="card-title">${escapeHtml(test.title || 'Без названия')}</h3>
-                        <div class="card-meta">
-                            ${test.author ? `<span>${escapeHtml(test.author)}</span>` : ''}
-                            ${test.date ? `<span>${formatExcelDate(test.date)}</span>` : ''}
-                            ${test.time_limit && test.time_limit > 0 ? `<span>⏱ ${test.time_limit} мин</span>` : ''}
+        if (state.tests.length === 0) {
+            elements.contentContainer.innerHTML = '<div class="empty-state">Тесты не найдены</div>';
+            return;
+        }
+        
+        const html = `
+            <div class="tests-grid">
+                ${state.tests.map(test => `
+                    <div class="test-card" data-test-id="${test.id}">
+                        ${test.image ? `<img src="${escapeHtml(test.image)}" class="card-image" alt="${escapeHtml(test.title)}" loading="lazy" onerror="this.style.display='none'">` : 
+                        `<div class="card-image" style="background: #e9ecef; display: flex; align-items: center; justify-content: center; color: #95a5a6;">Нет изображения</div>`}
+                        <div class="card-content">
+                            <h3 class="card-title">${escapeHtml(test.title || 'Без названия')}</h3>
+                            <div class="card-meta">
+                                ${test.author ? `<span>${escapeHtml(test.author)}</span>` : ''}
+                                ${test.date ? `<span>${formatExcelDate(test.date)}</span>` : ''}
+                                ${test.time_limit && Number(test.time_limit) > 0 ? `<span>⏱ ${test.time_limit} мин</span>` : ''}
+                            </div>
                         </div>
                     </div>
-                </div>
-            `).join('')}
-        </div>
-    `;
-    
-    elements.contentContainer.innerHTML = html;
-    
-    document.querySelectorAll('.test-card').forEach(card => {
-        card.addEventListener('click', () => {
-            navigateTo('tests', card.dataset.testId);
+                `).join('')}
+            </div>
+        `;
+        
+        elements.contentContainer.innerHTML = html;
+        
+        document.querySelectorAll('.test-card').forEach(card => {
+            card.addEventListener('click', () => {
+                navigateTo('tests', card.dataset.testId);
+            });
         });
-    });
-}
+    }
 
     function startTest(testId) {
-    const test = state.tests.find(t => String(t.id) === String(testId));
-    const questions = state.questions.filter(q => String(q.test_id) === String(testId));
-    
-    if (!test || questions.length === 0) {
-        navigateTo('tests');
-        return;
-    }
-    
-    // Очищаем предыдущий таймер
-    if (timerInterval) {
-        clearInterval(timerInterval);
-        timerInterval = null;
-    }
-    
-    state.currentTestId = testId;
-    state.currentQuestionIndex = 0;
-    state.testAnswers = {};
-    state.testStartTime = Date.now();
-    state.testQuestions = questions.map(q => ({
-        ...q,
-        shuffledAnswers: shuffleAnswers(q)
-    }));
-    
-    renderTestQuestion();
-    
-    if (test.time_limit && Number(test.time_limit) > 0) {
-        startTimer(Number(test.time_limit) * 60);
-    }
-}
-
-    function shuffleAnswers(question) {
-    if (question.text_answer) return [];
-    
-    const answers = [];
-    for (let i = 1; i <= 6; i++) {
-        const answer = question[`answer${i}`];
-        if (answer !== undefined && answer !== null && String(answer).trim() !== '') {
-            answers.push(String(answer).trim());
+        const test = state.tests.find(t => String(t.id) === String(testId));
+        const questions = state.questions.filter(q => String(q.test_id) === String(testId));
+        
+        if (!test || questions.length === 0) {
+            navigateTo('tests');
+            return;
         }
-    }
-    
-    return shuffleArray(answers);
-}
-
-    function shuffleArray(arr) {
-        const a = [...arr];
-        for (let i = a.length - 1; i > 0; i--) {
-            const j = Math.floor(Math.random() * (i + 1));
-            [a[i], a[j]] = [a[j], a[i]];
+        
+        if (timerInterval) {
+            clearInterval(timerInterval);
+            timerInterval = null;
         }
-        return a;
+        
+        state.currentTestId = String(testId);
+        state.currentQuestionIndex = 0;
+        state.testAnswers = {};
+        state.testStartTime = Date.now();
+        state.testQuestions = questions.map(q => ({
+            ...q,
+            shuffledAnswers: shuffleAnswers(q)
+        }));
+        
+        renderTestQuestion();
     }
-
-    let timerInterval = null;
 
     function startTimer(seconds) {
         if (timerInterval) clearInterval(timerInterval);
@@ -459,16 +434,7 @@
         
         let remaining = seconds;
         
-        timerInterval = setInterval(() => {
-            remaining--;
-            
-            if (remaining <= 0) {
-                clearInterval(timerInterval);
-                timerInterval = null;
-                finishTest(true);
-                return;
-            }
-            
+        const updateTimerDisplay = () => {
             const mins = Math.floor(remaining / 60);
             const secs = remaining % 60;
             timerElement.textContent = `${mins}:${secs.toString().padStart(2, '0')}`;
@@ -479,12 +445,31 @@
             } else if (remaining <= 120) {
                 timerElement.classList.add('warning');
             }
+        };
+        
+        updateTimerDisplay();
+        
+        timerInterval = setInterval(() => {
+            remaining--;
+            updateTimerDisplay();
+            
+            if (remaining <= 0) {
+                clearInterval(timerInterval);
+                timerInterval = null;
+                finishTest(true);
+            }
         }, 1000);
     }
 
     function renderTestQuestion() {
-        const test = state.tests.find(t => t.id === state.currentTestId);
+        const test = state.tests.find(t => String(t.id) === String(state.currentTestId));
         const questions = state.testQuestions;
+        
+        if (!test || !questions.length) {
+            navigateTo('tests');
+            return;
+        }
+        
         const currentQ = questions[state.currentQuestionIndex];
         const savedAnswer = state.testAnswers[currentQ.id];
         
@@ -499,7 +484,7 @@
                 
                 <div class="test-header">
                     <span class="test-progress">${escapeHtml(test.title)} — ${progress}</span>
-                    ${test.time_limit && Number(test.time_limit) > 0 ? `<span class="timer" id="timerDisplay">${test.time_limit}:00</span>` : ''}
+                    ${test.time_limit && Number(test.time_limit) > 0 ? `<span class="timer" id="timerDisplay"></span>` : ''}
                 </div>
                 
                 <div class="question-card">
@@ -511,7 +496,7 @@
                                value="${escapeHtml(savedAnswer || '')}">
                     ` : `
                         <div class="answers-list">
-                            ${answers.map((answer, idx) => `
+                            ${answers.map((answer) => `
                                 <div class="answer-item ${savedAnswer === answer ? 'selected' : ''}" data-answer="${escapeHtml(answer)}">
                                     <span class="answer-radio"></span>
                                     <span class="answer-text">${escapeHtml(answer)}</span>
@@ -535,13 +520,27 @@
         
         elements.contentContainer.innerHTML = html;
         
+        // Запуск таймера если нужно
+        if (test.time_limit && Number(test.time_limit) > 0) {
+            const elapsed = Math.floor((Date.now() - state.testStartTime) / 1000);
+            const total = Number(test.time_limit) * 60;
+            const remaining = Math.max(0, total - elapsed);
+            
+            if (remaining > 0) {
+                startTimer(remaining);
+            } else {
+                finishTest(true);
+                return;
+            }
+        }
+        
         document.getElementById('exitTest')?.addEventListener('click', () => {
             showConfirmModal('Вы уверены? Прогресс теста будет потерян.', () => {
-                navigateTo('tests');
                 if (timerInterval) {
                     clearInterval(timerInterval);
                     timerInterval = null;
                 }
+                navigateTo('tests');
             });
         });
         
@@ -580,16 +579,6 @@
         document.getElementById('finishTest')?.addEventListener('click', () => {
             showConfirmModal('Завершить тест и посмотреть результат?', () => finishTest(false));
         });
-        
-        if (test.time_limit && Number(test.time_limit) > 0) {
-            const elapsed = Math.floor((Date.now() - state.testStartTime) / 1000);
-            const remaining = Number(test.time_limit) * 60 - elapsed;
-            if (remaining > 0) {
-                startTimer(remaining);
-            } else {
-                finishTest(true);
-            }
-        }
     }
 
     function saveAnswer(questionId, answer) {
@@ -597,60 +586,60 @@
     }
 
     function finishTest(isTimeout) {
-    if (timerInterval) {
-        clearInterval(timerInterval);
-        timerInterval = null;
-    }
-    
-    const questions = state.testQuestions;
-    let correct = 0;
-    
-    questions.forEach(q => {
-        const userAnswer = String(state.testAnswers[q.id] || '').trim();
-        const correctAnswer = String(q.answer1 || '').trim();
-        
-        if (q.text_answer) {
-            if (userAnswer.toLowerCase() === correctAnswer.toLowerCase()) {
-                correct++;
-            }
-        } else {
-            if (userAnswer.toLowerCase() === correctAnswer.toLowerCase()) {
-                correct++;
-            }
+        if (timerInterval) {
+            clearInterval(timerInterval);
+            timerInterval = null;
         }
-    });
-    
-    const percent = Math.round((correct / questions.length) * 100);
-    
-    let percentClass = 'bad';
-    if (percent >= 70) percentClass = 'good';
-    else if (percent >= 40) percentClass = 'medium';
-    
-    const html = `
-        <div class="test-container">
-            <button class="back-button" id="backToTests">← К списку тестов</button>
+        
+        const questions = state.testQuestions;
+        let correct = 0;
+        
+        questions.forEach(q => {
+            const userAnswer = String(state.testAnswers[q.id] || '').trim();
+            const correctAnswer = String(q.answer1 || '').trim();
             
-            <div class="result-card">
-                <h2>Тест завершен${isTimeout ? ' (время вышло)' : ''}</h2>
-                <div class="result-percent ${percentClass}">${percent}%</div>
-                <div class="result-details">
-                    Правильных ответов: ${correct} из ${questions.length}
+            if (q.text_answer) {
+                if (userAnswer.toLowerCase() === correctAnswer.toLowerCase()) {
+                    correct++;
+                }
+            } else {
+                if (userAnswer.toLowerCase() === correctAnswer.toLowerCase()) {
+                    correct++;
+                }
+            }
+        });
+        
+        const percent = Math.round((correct / questions.length) * 100);
+        
+        let percentClass = 'bad';
+        if (percent >= 70) percentClass = 'good';
+        else if (percent >= 40) percentClass = 'medium';
+        
+        const html = `
+            <div class="test-container">
+                <button class="back-button" id="backToTests">← К списку тестов</button>
+                
+                <div class="result-card">
+                    <h2>Тест завершен${isTimeout ? ' (время вышло)' : ''}</h2>
+                    <div class="result-percent ${percentClass}">${percent}%</div>
+                    <div class="result-details">
+                        Правильных ответов: ${correct} из ${questions.length}
+                    </div>
+                    <button class="nav-test-btn primary" id="retakeTest">Пройти заново</button>
                 </div>
-                <button class="nav-test-btn primary" id="retakeTest">Пройти заново</button>
             </div>
-        </div>
-    `;
-    
-    elements.contentContainer.innerHTML = html;
-    
-    document.getElementById('backToTests')?.addEventListener('click', () => {
-        navigateTo('tests');
-    });
-    
-    document.getElementById('retakeTest')?.addEventListener('click', () => {
-        startTest(state.currentTestId);
-    });
-}
+        `;
+        
+        elements.contentContainer.innerHTML = html;
+        
+        document.getElementById('backToTests')?.addEventListener('click', () => {
+            navigateTo('tests');
+        });
+        
+        document.getElementById('retakeTest')?.addEventListener('click', () => {
+            startTest(state.currentTestId);
+        });
+    }
 
     function showConfirmModal(message, onConfirm) {
         elements.modalContent.innerHTML = `
@@ -679,13 +668,5 @@
         };
     }
 
-    function escapeHtml(text) {
-        if (!text) return '';
-        const div = document.createElement('div');
-        div.textContent = text;
-        return div.innerHTML;
-    }
-
-    // Запуск
     init();
 })();
