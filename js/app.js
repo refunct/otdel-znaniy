@@ -77,44 +77,36 @@ export function showModal(message, onConfirm, onCancel) {
 
 // Загрузка Excel
 async function loadExcel(filename) {
-    return new Promise((resolve, reject) => {
-        const xhr = new XMLHttpRequest();
-        xhr.open('GET', filename, true);
-        xhr.responseType = 'arraybuffer';
-        xhr.onload = () => {
-            if (xhr.status === 200) {
-                try {
-                    const data = new Uint8Array(xhr.response);
-                    const workbook = XLSX.read(data, { type: 'array' });
-                    const result = {};
-                    workbook.SheetNames.forEach(sheetName => {
-                        result[sheetName] = XLSX.utils.sheet_to_json(workbook.Sheets[sheetName]);
-                    });
-                    resolve(result);
-                } catch (e) { reject(e); }
-            } else { reject(new Error(`HTTP ${xhr.status}`)); }
-        };
-        xhr.onerror = () => reject(new Error('Network error'));
-        xhr.send();
-    });
+    try {
+        const response = await fetch(filename);
+        if (!response.ok) throw new Error(`HTTP ${response.status}`);
+        const buffer = await response.arrayBuffer();
+        const data = new Uint8Array(buffer);
+        const workbook = XLSX.read(data, { type: 'array' });
+        const result = {};
+        workbook.SheetNames.forEach(sheetName => {
+            result[sheetName] = XLSX.utils.sheet_to_json(workbook.Sheets[sheetName]);
+        });
+        return result;
+    } catch (e) {
+        console.error(`Failed to load ${filename}:`, e);
+        throw e;
+    }
 }
 
 async function loadData() {
+    const timeoutPromise = new Promise((_, reject) => 
+        setTimeout(() => reject(new Error('Timeout loading data')), 15000)
+    );
     try {
-        const [guidesData, testsData] = await Promise.all([
-            loadExcel('docs/guide.xlsx'),
-            loadExcel('docs/tests.xlsx')
+        const [guidesData, testsData] = await Promise.race([
+            Promise.all([loadExcel('docs/guide.xlsx'), loadExcel('docs/tests.xlsx')]),
+            timeoutPromise
         ]);
-        state.guides = (guidesData.guides || []).map(g => ({ ...g, id: String(g.id) }));
-        state.sections = (guidesData.sections || []).map(s => ({ ...s, id: String(s.id), guide_id: String(s.guide_id) }));
-        state.tests = (testsData.tests || []).map(t => ({ ...t, id: String(t.id) }));
-        state.questions = (testsData.questions || []).map(q => ({ ...q, id: String(q.id), test_id: String(q.test_id) }));
-        state.dataLoaded = true;
-        elements.loader.style.display = 'none';
-        handleRouting();
+        // ... обработка данных
     } catch (error) {
         console.error(error);
-        elements.loader.innerHTML = '<div class="empty-state">❌ Ошибка загрузки данных</div>';
+        elements.loader.innerHTML = '<div class="empty-state">❌ Не удалось загрузить данные. Проверьте интернет.</div>';
     }
 }
 
