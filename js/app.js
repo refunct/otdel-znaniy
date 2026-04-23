@@ -16,20 +16,11 @@ export const state = {
     isOnline: navigator.onLine,
     testInProgress: false
 };
-
-export const elements = {
-    navTabs: document.getElementById('navTabs'),
-    contentContainer: document.getElementById('contentContainer'),
-    notificationsContainer: document.getElementById('notificationsContainer'), // новая строка
-    loader: document.getElementById('loader'),
-    modalOverlay: document.getElementById('modalOverlay'),
-    modalContent: document.getElementById('modalContent')
-};
-
 // DOM элементы
 export const elements = {
     navTabs: document.getElementById('navTabs'),
     contentContainer: document.getElementById('contentContainer'),
+    notificationsContainer: document.getElementById('notificationsContainer'), // новая строка
     loader: document.getElementById('loader'),
     modalOverlay: document.getElementById('modalOverlay'),
     modalContent: document.getElementById('modalContent')
