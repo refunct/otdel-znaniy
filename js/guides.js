@@ -3,11 +3,41 @@ import { state, elements, escapeHtml, parseMediaList, getFileName, formatExcelDa
 
 function processContent(content) {
     if (!content) return '';
-    // 1. Преобразуем списки
+    
+    // 1. Преобразуем списки (уже реализовано)
     let html = convertLists(content);
-    // 2. Здесь можно добавить другие преобразования (например, поддержку кастомных тегов)
-    // Сейчас кастомные теги <c>, <w>, <e>, <q> уже поддерживаются стилями CSS, просто возвращаем как есть
+    
+    // 2. Оборачиваем обычный текст в абзацы
+    html = wrapParagraphs(html);
+    
     return html;
+}
+
+// Вспомогательная функция для оборачивания текста в параграфы
+function wrapParagraphs(html) {
+    if (!html) return '';
+    
+    // Разделяем по двойным переводам строки (пустым строкам)
+    const blocks = html.split(/\n\s*\n/);
+    const result = [];
+    
+    for (let block of blocks) {
+        block = block.trim();
+        if (!block) continue;
+        
+        // Если блок уже начинается с блочного тега (<ul>, <ol>, <q>, <c>, <w>, <e>), не оборачиваем в <p>
+        const isBlockTag = /^\s*<(ul|ol|q|c|w|e|div|blockquote)/i.test(block);
+        
+        if (isBlockTag) {
+            result.push(block);
+        } else {
+            // Заменяем одиночные переводы строк внутри параграфа на <br> для сохранения форматирования
+            const withBreaks = block.replace(/\n/g, '<br>');
+            result.push(`<p>${withBreaks}</p>`);
+        }
+    }
+    
+    return result.join('\n');
 }
 
 function renderSection(section) {
