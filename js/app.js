@@ -68,8 +68,9 @@ async function loadExcel(filename) {
 
 // Загрузка всех данных с таймаутом и обработкой ошибок
 async function loadData() {
-    // Загружаем основные данные с таймаутом
     const timeout = (ms) => new Promise((_, reject) => setTimeout(() => reject(new Error('Timeout')), ms));
+    
+    // Основные данные (guide, tests)
     try {
         const [guidesData, testsData] = await Promise.race([
             Promise.all([
@@ -88,7 +89,7 @@ async function loadData() {
         return;
     }
 
-    // Загружаем уведомления отдельно (необязательный файл)
+    // Уведомления (отдельно, необязательный файл)
     try {
         const notificationsData = await Promise.race([
             loadExcel('docs/notifications.xlsx'),
@@ -97,11 +98,23 @@ async function loadData() {
         if (notificationsData && notificationsData.notifications) {
             const closed = JSON.parse(localStorage.getItem('closedNotifications') || '[]');
             state.notifications = notificationsData.notifications
-                .map(n => ({ ...n, id: String(n.id) }))
-                .filter(n => {
-                    if (n.active != 1) return false;
-                    return !closed.includes(n.id);
-                });
+                .map(row => {
+                    // Нормализация ключей: убираем пробелы, приводим к нижнему регистру
+                    const normalized = {};
+                    Object.keys(row).forEach(key => {
+                        const cleanKey = key.trim().toLowerCase();
+                        normalized[cleanKey] = row[key];
+                    });
+                    // Ищем столбец типа среди нормализованных ключей
+                    const typeKey = Object.keys(normalized).find(k => k === 'type');
+                    return {
+                        id: String(normalized.id || ''),
+                        message: normalized.message || '',
+                        active: normalized.active,
+                        type: typeKey ? String(normalized[typeKey]).trim().toLowerCase() : 'info'
+                    };
+                })
+                .filter(n => n.active == 1 && !closed.includes(n.id));
         } else {
             state.notifications = [];
         }
@@ -134,9 +147,7 @@ function showRetryButton() {
 function parseHash() {
     const hash = window.location.hash.slice(1) || 'guides';
     const parts = hash.split('/');
-    const page = parts[0];
-    const id = parts[1] || null;
-    return { page, id };
+    return { page: parts[0], id: parts[1] || null };
 }
 
 function updateActiveTab(page) {
@@ -158,25 +169,15 @@ function handleRouting() {
     updateActiveTab(page);
 
     if (page === 'guides') {
-        if (id) {
-            state.currentGuideId = id;
-            renderSections();
-        } else {
-            state.currentGuideId = null;
-            renderGuidesList();
-        }
+        state.currentGuideId = id;
+        id ? renderSections() : renderGuidesList();
     } else if (page === 'tests') {
-        if (id) {
-            state.currentTestId = id;
-            startTest(id);
-        } else {
-            state.currentTestId = null;
-            renderTestsList();
-        }
+        state.currentTestId = id;
+        id ? startTest(id) : renderTestsList();
     }
 }
 
-// Универсальное модальное окно
+// Модальное окно
 export function showModal(message, onConfirm, onCancel) {
     elements.modalContent.innerHTML = `
         <p>${escapeHtml(message)}</p>
@@ -202,17 +203,13 @@ export function showModal(message, onConfirm, onCancel) {
     };
 }
 
-// PWA установка (без Service Worker)
-let deferredPrompt;
-let installPromptShown = false;
-
+// PWA установка
+let deferredPrompt, installPromptShown = false;
 function setupPWA() {
     window.addEventListener('beforeinstallprompt', (e) => {
         e.preventDefault();
         deferredPrompt = e;
-        if (!installPromptShown && state.dataLoaded) {
-            setTimeout(showInstallPrompt, 3000);
-        }
+        if (!installPromptShown && state.dataLoaded) setTimeout(showInstallPrompt, 3000);
     });
 }
 
@@ -241,55 +238,43 @@ function showInstallPrompt() {
     };
 }
 
-// Лайтбокс для изображений
+// Лайтбокс
 function openLightbox(src) {
     elements.modalContent.innerHTML = `
-        <div style="position: relative; max-width: 90vw; max-height: 90vh;">
-            <img src="${escapeHtml(src)}" style="width: 100%; height: auto; display: block; border-radius: var(--radius);">
-            <button class="lightbox-close" style="position: absolute; top: -15px; right: -15px; background: var(--primary); color: white; border: none; border-radius: 50%; width: 40px; height: 40px; cursor: pointer; font-size: 24px; line-height: 1; box-shadow: var(--shadow);">×</button>
+        <div style="position:relative; max-width:90vw; max-height:90vh;">
+            <img src="${escapeHtml(src)}" style="width:100%; height:auto; border-radius:var(--radius);">
+            <button class="lightbox-close" style="position:absolute; top:-15px; right:-15px; background:var(--primary); color:white; border:none; border-radius:50%; width:40px; height:40px; cursor:pointer; font-size:24px; line-height:1; box-shadow:var(--shadow);">×</button>
         </div>
     `;
     elements.modalOverlay.style.display = 'flex';
     const closeBtn = elements.modalContent.querySelector('.lightbox-close');
-    if (closeBtn) {
-        closeBtn.onclick = () => elements.modalOverlay.style.display = 'none';
-    }
+    if (closeBtn) closeBtn.onclick = () => elements.modalOverlay.style.display = 'none';
     elements.modalOverlay.onclick = (e) => {
-        if (e.target === elements.modalOverlay) {
-            elements.modalOverlay.style.display = 'none';
-        }
+        if (e.target === elements.modalOverlay) elements.modalOverlay.style.display = 'none';
     };
 }
 
 // Уведомления
 function renderNotifications() {
     const container = elements.notificationsContainer;
-    if (!container) return;
-
-    const notifications = state.notifications;
-    if (!notifications.length) {
-        container.innerHTML = '';
-        container.style.display = 'none';
+    if (!container || !state.notifications.length) {
+        if (container) { container.innerHTML = ''; container.style.display = 'none'; }
         return;
     }
 
     let html = '';
-    notifications.forEach(n => {
+    state.notifications.forEach(n => {
         const type = String(n.type || '').trim().toLowerCase();
-        let bgColor = '#d1ecf1', borderColor = '#0c5460', textColor = '#0c5460'; // info
-        if (type === 'warning') {
-            bgColor = '#fff3cd'; borderColor = '#856404'; textColor = '#856404';
-        } else if (type === 'error') {
-            bgColor = '#f8d7da'; borderColor = '#721c24'; textColor = '#721c24';
-        }
+        let bg = '#d1ecf1', border = '#0c5460', color = '#0c5460'; // info
+        if (type === 'warning') { bg = '#fff3cd'; border = '#856404'; color = '#856404'; }
+        else if (type === 'error') { bg = '#f8d7da'; border = '#721c24'; color = '#721c24'; }
         html += `
-            <div class="notification-item" data-id="${n.id}" style="background:${bgColor}; border-left:4px solid ${borderColor}; color:${textColor}; margin-bottom:8px; padding:12px 16px; border-radius:0 var(--radius-sm) var(--radius-sm) 0; display:flex; align-items:center; justify-content:space-between; opacity:1; max-height:200px; transition:all 0.3s ease;">
+            <div class="notification-item" data-id="${n.id}" style="background:${bg}; border-left:4px solid ${border}; color:${color}; margin-bottom:8px; padding:12px 16px; border-radius:0 var(--radius-sm) var(--radius-sm) 0; display:flex; align-items:center; justify-content:space-between; transition:all 0.3s ease;">
                 <div class="notification-message" style="flex:1;">${n.message}</div>
-                <button class="notification-close" style="background:none; border:none; font-size:1.5rem; cursor:pointer; color:${textColor}; padding:0 0 0 12px; line-height:1;">&times;</button>
+                <button class="notification-close" style="background:none; border:none; font-size:1.5rem; cursor:pointer; color:${color}; padding:0 0 0 12px; line-height:1;">&times;</button>
             </div>
         `;
     });
-
     container.innerHTML = html;
     container.style.display = 'block';
 }
@@ -308,12 +293,8 @@ function closeNotification(id) {
         item.style.padding = '0 16px';
         item.style.marginBottom = '0';
         item.style.borderLeftWidth = '0';
-        setTimeout(() => {
-            renderNotifications();
-        }, 300);
-    } else {
-        renderNotifications();
-    }
+        setTimeout(renderNotifications, 300);
+    } else renderNotifications();
 }
 
 // Инициализация
@@ -337,8 +318,7 @@ async function init() {
         if (!closeBtn) return;
         const item = closeBtn.closest('.notification-item');
         if (!item) return;
-        const id = item.dataset.id;
-        closeNotification(id);
+        closeNotification(item.dataset.id);
     });
     await loadData();
 }
