@@ -214,6 +214,23 @@ function showInstallPrompt() {
     };
 }
 
+function openLightbox(src) {
+    elements.modalContent.innerHTML = `
+        <div style="position: relative; max-width: 90vw; max-height: 90vh;">
+            <img src="${escapeHtml(src)}" style="width: 100%; height: auto; display: block; border-radius: var(--radius);">
+            <button class="lightbox-close" style="position: absolute; top: -15px; right: -15px; background: var(--primary); color: white; border: none; border-radius: 50%; width: 40px; height: 40px; cursor: pointer; font-size: 24px; line-height: 1; box-shadow: var(--shadow);">×</button>
+        </div>
+    `;
+    elements.modalOverlay.style.display = 'flex';
+    const closeBtn = elements.modalContent.querySelector('.lightbox-close');
+    closeBtn.onclick = () => elements.modalOverlay.style.display = 'none';
+    elements.modalOverlay.onclick = (e) => {
+        if (e.target === elements.modalOverlay) {
+            elements.modalOverlay.style.display = 'none';
+        }
+    };
+}
+
 // Инициализация
 async function init() {
     setupPWA();
@@ -223,6 +240,12 @@ async function init() {
         if (!btn) return;
         const page = btn.dataset.page;
         if (page) navigateTo(page);
+    });
+    document.addEventListener('click', (e) => {
+        const img = e.target.closest('[data-lightbox]');
+        if (!img) return;
+        e.preventDefault();
+        openLightbox(img.src);
     });
     await loadData();
 }
