@@ -50,36 +50,9 @@ body {
     letter-spacing: -0.5px;
 }
 
-.header-controls {
-    display: flex;
-    align-items: center;
-    gap: 12px;
-    flex-wrap: wrap;
-}
-
-.install-btn {
-    background: white;
-    color: var(--primary);
-    border: 2px solid white;
-    padding: 8px 16px;
-    border-radius: 30px;
-    font-size: 0.9rem;
-    font-weight: 600;
-    cursor: pointer;
-    transition: all 0.2s;
-    white-space: nowrap;
-    flex-shrink: 0;
-}
-
-.install-btn:hover {
-    background: rgba(255,255,255,0.1);
-    color: white;
-}
-
 .nav-tabs {
     display: flex;
     gap: 8px;
-    flex-wrap: wrap;
 }
 
 .nav-btn {
@@ -92,7 +65,6 @@ body {
     font-weight: 500;
     cursor: pointer;
     transition: all 0.2s;
-    white-space: nowrap;
 }
 
 .nav-btn:hover {
@@ -518,19 +490,54 @@ body {
     padding: 0 20px 16px;
     max-width: 1400px;
     margin: 0 auto;
-    display: none;
+    display: block;
 }
 
 .notification-item:hover { filter: brightness(0.98); }
 .notification-close:hover { opacity: 0.7; }
 .notification-message a { color: inherit; text-decoration: underline; }
 
+/* Баннер установки */
+.install-banner {
+    background: #d4edda;
+    border-left: 4px solid #28a745;
+    color: #155724;
+    margin-bottom: 16px;
+    padding: 16px 20px;
+    border-radius: 0 var(--radius-sm) var(--radius-sm) 0;
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    flex-wrap: wrap;
+    gap: 12px;
+}
+
+.install-banner-message {
+    flex: 1;
+    font-size: 1rem;
+    line-height: 1.4;
+}
+
+.install-banner-btn {
+    background: #28a745;
+    color: white;
+    border: none;
+    padding: 10px 20px;
+    border-radius: 25px;
+    font-weight: 600;
+    cursor: pointer;
+    transition: background 0.2s;
+    white-space: nowrap;
+}
+
+.install-banner-btn:hover {
+    background: #218838;
+}
+
 /* Адаптив */
 @media (max-width: 600px) {
     .app-header { padding: 12px 16px; }
     .header-top { flex-direction: column; align-items: flex-start; }
-    .header-controls { width: 100%; justify-content: space-between; }
-    .install-btn { font-size: 0.85rem; padding: 6px 14px; }
     .app-title { font-size: 1.3rem; }
     .app-main { padding: 16px 12px; }
     .guides-grid, .tests-grid { grid-template-columns: 1fr; gap: 16px; }
@@ -538,6 +545,6 @@ body {
     .question-card { padding: 20px; }
     .test-navigation { flex-direction: column; }
     .nav-test-btn { width: 100%; }
+    .install-banner { flex-direction: column; align-items: flex-start; }
+    .install-banner-btn { width: 100%; text-align: center; }
 }
-
-/* 111 */

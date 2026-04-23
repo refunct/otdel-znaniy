@@ -20,7 +20,7 @@ export const state = {
 // DOM элементы
 export const elements = {
     navTabs: document.getElementById('navTabs'),
-    installBtn: document.getElementById('installBtn'),
+    installBanner: document.getElementById('installBanner'),
     contentContainer: document.getElementById('contentContainer'),
     notificationsContainer: document.getElementById('notificationsContainer'),
     loader: document.getElementById('loader'),
@@ -196,31 +196,36 @@ export function showModal(message, onConfirm, onCancel) {
     };
 }
 
-// PWA: кнопка установки (всегда видна после первого события)
+// PWA: баннер установки (всегда виден, если поддерживается)
 let deferredPrompt = null;
 
 function setupPWA() {
+    const banner = elements.installBanner;
+    if (!banner) return;
+
     window.addEventListener('beforeinstallprompt', (e) => {
         e.preventDefault();
         deferredPrompt = e;
-        elements.installBtn.style.display = 'block';
+        // Показать баннер, если ещё не показан
+        banner.style.display = 'block';
+        banner.innerHTML = `
+            <div class="install-banner-message">📱 Установите приложение, чтобы пользоваться справочником даже без интернета.</div>
+            <button class="install-banner-btn" id="installBannerBtn">Установить</button>
+        `;
+        document.getElementById('installBannerBtn').addEventListener('click', () => {
+            if (deferredPrompt) {
+                deferredPrompt.prompt();
+                deferredPrompt.userChoice.then(() => {
+                    // не скрываем баннер, он остаётся
+                    deferredPrompt = null;
+                });
+            }
+        });
     });
 
-    // Если приложение уже установлено, кнопка остаётся, но будет показываться сообщение при клике
+    // Если приложение уже установлено, можно скрыть
     window.addEventListener('appinstalled', () => {
-        // не скрываем
-    });
-
-    elements.installBtn.addEventListener('click', async () => {
-        if (deferredPrompt) {
-            deferredPrompt.prompt();
-            const { outcome } = await deferredPrompt.userChoice;
-            // Не скрываем кнопку после установки
-            deferredPrompt = null;
-        } else {
-            // Если нет доступного события – возможно, приложение уже установлено
-            alert('Приложение уже установлено или функция недоступна. Используйте меню браузера.');
-        }
+        banner.style.display = 'none';
     });
 }
 
@@ -243,12 +248,24 @@ function openLightbox(src) {
 // Уведомления
 function renderNotifications() {
     const container = elements.notificationsContainer;
-    if (!container || !state.notifications.length) {
-        if (container) { container.innerHTML = ''; container.style.display = 'none'; }
+    if (!container) return;
+
+    // Сохраняем баннер установки, если он есть
+    const installBanner = document.getElementById('installBanner');
+    const bannerHTML = installBanner ? installBanner.outerHTML : '';
+
+    if (!state.notifications.length) {
+        container.innerHTML = bannerHTML;
+        if (installBanner) {
+            // Восстанавливаем элемент
+            const newBanner = container.querySelector('#installBanner');
+            if (newBanner) elements.installBanner = newBanner;
+        }
+        container.style.display = 'block';
         return;
     }
 
-    let html = '';
+    let html = bannerHTML;
     state.notifications.forEach(n => {
         const type = String(n.type || '').trim().toLowerCase();
         let bg = '#d1ecf1', border = '#0c5460', color = '#0c5460'; // info
@@ -262,6 +279,10 @@ function renderNotifications() {
         `;
     });
     container.innerHTML = html;
+    // Восстанавливаем ссылку на installBanner
+    const newBanner = container.querySelector('#installBanner');
+    if (newBanner) elements.installBanner = newBanner;
+    else elements.installBanner = null;
     container.style.display = 'block';
 }
 
