@@ -194,46 +194,57 @@ function setupPWA() {
     const banner = document.getElementById('installBanner');
     if (!banner) return;
 
-    // Пытаемся показать баннер сразу с инструкцией по ручной установке
-    showInstallBanner(banner, false);
+    // Показываем информационный вариант (без активной кнопки установки)
+    showInstallBanner(banner, 'info');
 
     window.addEventListener('beforeinstallprompt', (e) => {
         e.preventDefault();
         deferredPrompt = e;
-        // Активируем кнопку
-        showInstallBanner(banner, true);
+        // Активируем кнопку установки
+        showInstallBanner(banner, 'install');
     });
 
+    // После установки НЕ скрываем баннер, а меняем сообщение
     window.addEventListener('appinstalled', () => {
-        banner.style.display = 'none';
+        showInstallBanner(banner, 'installed');
+        deferredPrompt = null;
     });
 
+    // Обработчик клика по кнопке
     banner.addEventListener('click', (e) => {
-        if (e.target.id === 'installBannerBtn') {
-            if (deferredPrompt) {
-                deferredPrompt.prompt();
-                deferredPrompt.userChoice.then(() => {
-                    // Оставляем баннер, но меняем текст
-                    showInstallBanner(banner, false);
-                    deferredPrompt = null;
-                });
-            } else {
-                // Подсказка по ручной установке
-                alert('Чтобы установить приложение, используйте меню браузера: "Добавить на главный экран" или "Установить приложение".');
-            }
+        if (e.target.id !== 'installBannerBtn') return;
+        if (deferredPrompt) {
+            deferredPrompt.prompt();
+            deferredPrompt.userChoice.then(() => {
+                // Не скрываем, просто сбрасываем активную кнопку, показываем info
+                deferredPrompt = null;
+                showInstallBanner(banner, 'info');
+            });
+        } else {
+            // Инструкция при отсутствии автоматической установки
+            alert('Чтобы установить приложение, используйте меню браузера: "Добавить на главный экран" или "Установить приложение".');
         }
     });
 }
 
-function showInstallBanner(banner, installAvailable) {
+function showInstallBanner(banner, mode) {
     banner.style.display = 'block';
     banner.className = 'install-banner';
-    if (installAvailable) {
+
+    if (mode === 'install') {
+        // Активная кнопка установки
         banner.innerHTML = `
             <div class="install-banner-message">📱 Установите приложение, чтобы пользоваться справочником даже без интернета.</div>
             <button class="install-banner-btn" id="installBannerBtn">Установить</button>
         `;
+    } else if (mode === 'installed') {
+        // Приложение уже установлено
+        banner.innerHTML = `
+            <div class="install-banner-message">✅ Приложение установлено. Спасибо!</div>
+            <button class="install-banner-btn" id="installBannerBtn" disabled>Готово</button>
+        `;
     } else {
+        // Информационный режим (нет автоматической установки)
         banner.innerHTML = `
             <div class="install-banner-message">📱 Добавьте сайт на главный экран для быстрого доступа. Инструкция в меню браузера.</div>
             <button class="install-banner-btn" id="installBannerBtn">Как установить?</button>
