@@ -8,7 +8,7 @@ export const state = {
     sections: [],
     tests: [],
     questions: [],
-    notifications: [],   // новый массив
+    notifications: [],
     dataLoaded: false,
     currentPage: 'guides',
     currentGuideId: null,
@@ -16,11 +16,12 @@ export const state = {
     isOnline: navigator.onLine,
     testInProgress: false
 };
+
 // DOM элементы
 export const elements = {
     navTabs: document.getElementById('navTabs'),
     contentContainer: document.getElementById('contentContainer'),
-    notificationsContainer: document.getElementById('notificationsContainer'), // новая строка
+    notificationsContainer: document.getElementById('notificationsContainer'),
     loader: document.getElementById('loader'),
     modalOverlay: document.getElementById('modalOverlay'),
     modalContent: document.getElementById('modalContent')
@@ -75,90 +76,33 @@ async function loadData() {
             Promise.all([
                 loadExcel('docs/guide.xlsx'),
                 loadExcel('docs/tests.xlsx'),
-                loadExcel('docs/notifications.xlsx').catch(() => null) // игнорируем ошибку
+                loadExcel('docs/notifications.xlsx').catch(() => null)
             ]),
             timeoutPromise
         ]);
 
-        // ... существующая обработка guides и tests ...
+        state.guides = (guidesData.guides || []).map(g => ({ ...g, id: String(g.id) }));
+        state.sections = (guidesData.sections || []).map(s => ({ ...s, id: String(s.id), guide_id: String(s.guide_id) }));
+        state.tests = (testsData.tests || []).map(t => ({ ...t, id: String(t.id) }));
+        state.questions = (testsData.questions || []).map(q => ({ ...q, id: String(q.id), test_id: String(q.test_id) }));
 
-        // Обработка уведомлений
-        if (notificationsData) {
-            state.notifications = (notificationsData.notifications || [])
+        // Уведомления
+        if (notificationsData && notificationsData.notifications) {
+            const closed = JSON.parse(localStorage.getItem('closedNotifications') || '[]');
+            state.notifications = notificationsData.notifications
                 .map(n => ({ ...n, id: String(n.id) }))
-                .filter(n => {
-                    // Только активные (active == 1) и не скрытые ранее
-                    if (n.active !== 1) return false;
-                    const closed = JSON.parse(localStorage.getItem('closedNotifications') || '[]');
-                    return !closed.includes(n.id);
-                });
+                .filter(n => n.active == 1 && !closed.includes(n.id));
         } else {
             state.notifications = [];
         }
 
         state.dataLoaded = true;
         elements.loader.style.display = 'none';
-        renderNotifications(); // показываем уведомления после загрузки
+        renderNotifications();
         handleRouting();
     } catch (error) {
         console.error('Load error:', error);
         showRetryButton();
-    }
-}
-
-function renderNotifications() {
-    const container = elements.notificationsContainer;
-    if (!container) return;
-
-    const notifications = state.notifications;
-    if (!notifications.length) {
-        container.innerHTML = '';
-        container.style.display = 'none';
-        return;
-    }
-
-    let html = '';
-    notifications.forEach(n => {
-        let bgColor = '#d1ecf1', borderColor = '#0c5460', textColor = '#0c5460'; // info
-        if (n.type === 'warning') {
-            bgColor = '#fff3cd'; borderColor = '#856404'; textColor = '#856404';
-        } else if (n.type === 'error') {
-            bgColor = '#f8d7da'; borderColor = '#721c24'; textColor = '#721c24';
-        }
-        html += `
-            <div class="notification-item" data-id="${n.id}" style="background:${bgColor}; border-left:4px solid ${borderColor}; color:${textColor}; margin-bottom:8px; padding:12px 16px; border-radius:0 var(--radius-sm) var(--radius-sm) 0; display:flex; align-items:center; justify-content:space-between; opacity:1; max-height:200px; transition:all 0.3s ease;">
-                <div class="notification-message" style="flex:1;">${n.message}</div>
-                <button class="notification-close" style="background:none; border:none; font-size:1.5rem; cursor:pointer; color:${textColor}; padding:0 0 0 12px; line-height:1;">&times;</button>
-            </div>
-        `;
-    });
-
-    container.innerHTML = html;
-    container.style.display = 'block';
-}
-
-function closeNotification(id) {
-    // Сохраняем ID в localStorage
-    const closed = JSON.parse(localStorage.getItem('closedNotifications') || '[]');
-    if (!closed.includes(id)) {
-        closed.push(id);
-        localStorage.setItem('closedNotifications', JSON.stringify(closed));
-    }
-    // Удаляем из state.notifications
-    state.notifications = state.notifications.filter(n => n.id !== id);
-    // Плавно скрываем плашку
-    const item = document.querySelector(`.notification-item[data-id="${id}"]`);
-    if (item) {
-        item.style.opacity = '0';
-        item.style.maxHeight = '0';
-        item.style.padding = '0 16px';
-        item.style.marginBottom = '0';
-        item.style.borderLeftWidth = '0';
-        setTimeout(() => {
-            renderNotifications(); // обновим список (удалит элемент или скроет контейнер)
-        }, 300);
-    } else {
-        renderNotifications();
     }
 }
 
@@ -287,6 +231,7 @@ function showInstallPrompt() {
     };
 }
 
+// Лайтбокс для изображений
 function openLightbox(src) {
     elements.modalContent.innerHTML = `
         <div style="position: relative; max-width: 90vw; max-height: 90vh;">
@@ -296,12 +241,68 @@ function openLightbox(src) {
     `;
     elements.modalOverlay.style.display = 'flex';
     const closeBtn = elements.modalContent.querySelector('.lightbox-close');
-    closeBtn.onclick = () => elements.modalOverlay.style.display = 'none';
+    if (closeBtn) {
+        closeBtn.onclick = () => elements.modalOverlay.style.display = 'none';
+    }
     elements.modalOverlay.onclick = (e) => {
         if (e.target === elements.modalOverlay) {
             elements.modalOverlay.style.display = 'none';
         }
     };
+}
+
+// Уведомления
+function renderNotifications() {
+    const container = elements.notificationsContainer;
+    if (!container) return;
+
+    const notifications = state.notifications;
+    if (!notifications.length) {
+        container.innerHTML = '';
+        container.style.display = 'none';
+        return;
+    }
+
+    let html = '';
+    notifications.forEach(n => {
+        let bgColor = '#d1ecf1', borderColor = '#0c5460', textColor = '#0c5460'; // info
+        if (n.type === 'warning') {
+            bgColor = '#fff3cd'; borderColor = '#856404'; textColor = '#856404';
+        } else if (n.type === 'error') {
+            bgColor = '#f8d7da'; borderColor = '#721c24'; textColor = '#721c24';
+        }
+        html += `
+            <div class="notification-item" data-id="${n.id}" style="background:${bgColor}; border-left:4px solid ${borderColor}; color:${textColor}; margin-bottom:8px; padding:12px 16px; border-radius:0 var(--radius-sm) var(--radius-sm) 0; display:flex; align-items:center; justify-content:space-between; opacity:1; max-height:200px; transition:all 0.3s ease;">
+                <div class="notification-message" style="flex:1;">${n.message}</div>
+                <button class="notification-close" style="background:none; border:none; font-size:1.5rem; cursor:pointer; color:${textColor}; padding:0 0 0 12px; line-height:1;">&times;</button>
+            </div>
+        `;
+    });
+
+    container.innerHTML = html;
+    container.style.display = 'block';
+}
+
+function closeNotification(id) {
+    const closed = JSON.parse(localStorage.getItem('closedNotifications') || '[]');
+    if (!closed.includes(id)) {
+        closed.push(id);
+        localStorage.setItem('closedNotifications', JSON.stringify(closed));
+    }
+    state.notifications = state.notifications.filter(n => n.id !== id);
+    const item = document.querySelector(`.notification-item[data-id="${id}"]`);
+    if (item) {
+        item.style.opacity = '0';
+        item.style.maxHeight = '0';
+        item.style.padding = '0 16px';
+        item.style.marginBottom = '0';
+        item.style.borderLeftWidth = '0';
+        setTimeout(() => {
+            renderNotifications();
+        }, 300);
+    } else {
+        renderNotifications();
+    }
 }
 
 // Инициализация
