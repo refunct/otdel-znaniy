@@ -17,23 +17,42 @@ function processContent(content) {
 function wrapParagraphs(html) {
     if (!html) return '';
     
-    // Разделяем по двойным переводам строки (пустым строкам)
-    const blocks = html.split(/\n\s*\n/);
+    // Сначала защитим блочные теги, чтобы они не ломались при разбиении
+    const blockTags = ['ul', 'ol', 'q', 'c', 'w', 'e', 'div', 'blockquote', 'h1', 'h2', 'h3', 'h4', 'h5', 'h6'];
+    const placeholder = '%%BLOCK_TAG%%';
+    const blocks = [];
+    
+    // Временно заменяем блочные теги на плейсхолдеры
+    let index = 0;
+    let processed = html.replace(/<(ul|ol|q|c|w|e|div|blockquote|h[1-6])[\s\S]*?<\/\1>/gi, (match) => {
+        blocks.push(match);
+        return placeholder + (index++);
+    });
+    
+    // Разделяем по двум и более пустым строкам (это будущие абзацы)
+    const paragraphs = processed.split(/\n\s*\n\s*\n+/);
     const result = [];
     
-    for (let block of blocks) {
-        block = block.trim();
-        if (!block) continue;
+    for (let para of paragraphs) {
+        para = para.trim();
+        if (!para) continue;
         
-        // Если блок уже начинается с блочного тега (<ul>, <ol>, <q>, <c>, <w>, <e>), не оборачиваем в <p>
-        const isBlockTag = /^\s*<(ul|ol|q|c|w|e|div|blockquote)/i.test(block);
+        // Восстанавливаем блочные теги из плейсхолдеров
+        para = para.replace(new RegExp(placeholder + '(\\d+)', 'g'), (_, i) => blocks[parseInt(i)]);
         
+        // Если абзац начинается с блочного тега — не оборачиваем в <p>
+        const isBlockTag = /^\s*<(ul|ol|q|c|w|e|div|blockquote|h[1-6])/i.test(para);
         if (isBlockTag) {
-            result.push(block);
+            result.push(para);
         } else {
-            // Заменяем одиночные переводы строк внутри параграфа на <br> для сохранения форматирования
-            const withBreaks = block.replace(/\n/g, '<br>');
-            result.push(`<p>${withBreaks}</p>`);
+            // Внутри абзаца:
+            // 1. Два переноса подряд (одна пустая строка) -> <br>
+            // 2. Одиночный перенос -> пробел
+            let content = para
+                .replace(/\n\n/g, '<br>')
+                .replace(/\n/g, ' ');
+            
+            result.push(`<p>${content}</p>`);
         }
     }
     
