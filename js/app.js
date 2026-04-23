@@ -196,7 +196,7 @@ export function showModal(message, onConfirm, onCancel) {
     };
 }
 
-// PWA: кнопка установки
+// PWA: кнопка установки (всегда видна после первого события)
 let deferredPrompt = null;
 
 function setupPWA() {
@@ -206,19 +206,21 @@ function setupPWA() {
         elements.installBtn.style.display = 'block';
     });
 
+    // Если приложение уже установлено, кнопка остаётся, но будет показываться сообщение при клике
     window.addEventListener('appinstalled', () => {
-        elements.installBtn.style.display = 'none';
-        deferredPrompt = null;
+        // не скрываем
     });
 
     elements.installBtn.addEventListener('click', async () => {
-        if (!deferredPrompt) return;
-        deferredPrompt.prompt();
-        const { outcome } = await deferredPrompt.userChoice;
-        if (outcome === 'accepted') {
-            elements.installBtn.style.display = 'none';
+        if (deferredPrompt) {
+            deferredPrompt.prompt();
+            const { outcome } = await deferredPrompt.userChoice;
+            // Не скрываем кнопку после установки
+            deferredPrompt = null;
+        } else {
+            // Если нет доступного события – возможно, приложение уже установлено
+            alert('Приложение уже установлено или функция недоступна. Используйте меню браузера.');
         }
-        deferredPrompt = null;
     });
 }
 
