@@ -546,3 +546,31 @@ body {
     .test-navigation { flex-direction: column; }
     .nav-test-btn { width: 100%; }
 }
+
+.section-content ul,
+.section-content ol {
+    margin: 16px 0 16px 24px;
+    padding-left: 0;
+}
+
+.section-content li {
+    margin-bottom: 8px;
+    line-height: 1.6;
+}
+
+.section-content ul {
+    list-style-type: disc;
+}
+
+.section-content ol {
+    list-style-type: decimal;
+}
+
+/* Вложенные списки */
+.section-content ul ul,
+.section-content ol ol,
+.section-content ul ol,
+.section-content ol ul {
+    margin-top: 8px;
+    margin-bottom: 8px;
+}
