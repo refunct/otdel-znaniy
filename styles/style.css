@@ -549,7 +549,7 @@ body {
 
 .section-content ul,
 .section-content ol {
-    margin: 16px 0 16px 24px;
+    margin: 6px 0 16px 24px;
     padding-left: 0;
 }
 
@@ -571,6 +571,6 @@ body {
 .section-content ol ol,
 .section-content ul ol,
 .section-content ol ul {
-    margin-top: 2px;
+    margin-top: 8px;
     margin-bottom: 8px;
 }
