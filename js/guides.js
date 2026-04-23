@@ -13,6 +13,25 @@ function processContent(content) {
     return html;
 }
 
+// В начало файла после импортов добавим функцию проверки origin
+function isSameOrigin(url) {
+    try {
+        // Относительные пути считаем локальными
+        if (url.startsWith('/') || url.startsWith('./') || url.startsWith('../')) return true;
+        const parsed = new URL(url, window.location.origin);
+        return parsed.origin === window.location.origin;
+    } catch {
+        return false; // если невалидный URL, считаем внешним
+    }
+}
+
+// Функция для определения ID видео YouTube
+function getYouTubeId(url) {
+    const regExp = /^.*(youtu.be\/|v\/|u\/\w\/|embed\/|watch\?v=|&v=)([^#&?]*).*/;
+    const match = url.match(regExp);
+    return (match && match[2].length === 11) ? match[2] : null;
+}
+
 // Вспомогательная функция для оборачивания текста в параграфы
 function wrapParagraphs(html) {
     if (!html) return '';
@@ -80,11 +99,23 @@ function renderSection(section) {
                     </ul>
                 </div>` : ''}
             ${videos.length ? `
-                <div class="media-section"><div class="media-title">Видео</div>
-                    <ul class="videos-list">
-                        ${videos.map(v => `<li class="video-item"><a href="${escapeHtml(v)}" class="video-link" target="_blank">🎬 ${escapeHtml(getFileName(v))}</a></li>`).join('')}
-                    </ul>
-                </div>` : ''}
+                <div class="media-section">
+                    <div class="media-title">Видео</div>
+                    <div class="videos-grid">
+                        ${videos.map(video => {
+                            const sameOrigin = isSameOrigin(video);
+                            const youtubeId = !sameOrigin ? getYouTubeId(video) : null;
+                            if (sameOrigin) {
+                                return `<video controls class="video-player" src="${escapeHtml(video)}"></video>`;
+                            } else if (youtubeId) {
+                                return `<iframe class="video-iframe" src="https://www.youtube.com/embed/${youtubeId}" frameborder="0" allowfullscreen></iframe>`;
+                            } else {
+                                return `<iframe class="video-iframe" src="${escapeHtml(video)}" frameborder="0" allowfullscreen></iframe>`;
+                            }
+                        }).join('')}
+                    </div>
+                </div>
+            ` : ''}
         </div>
     `;
 }

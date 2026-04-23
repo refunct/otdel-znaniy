@@ -574,3 +574,30 @@ body {
     margin-top: 8px;
     margin-bottom: 8px;
 }
+
+/* Видео-плеер */
+.videos-grid {
+    display: flex;
+    flex-direction: column;
+    gap: 20px;
+    margin-top: 16px;
+}
+
+.video-player,
+.video-iframe {
+    width: 100%;
+    max-width: 100%;
+    border-radius: var(--radius-sm);
+    box-shadow: var(--shadow);
+    background: #000;
+}
+
+.video-player {
+    aspect-ratio: 16 / 9;
+    object-fit: contain;
+}
+
+.video-iframe {
+    aspect-ratio: 16 / 9;
+    border: none;
+}
