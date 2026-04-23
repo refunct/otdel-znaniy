@@ -68,42 +68,52 @@ async function loadExcel(filename) {
 
 // Загрузка всех данных с таймаутом и обработкой ошибок
 async function loadData() {
-    const timeoutPromise = new Promise((_, reject) =>
-        setTimeout(() => reject(new Error('Timeout')), 15000)
-    );
+    // Загружаем основные данные с таймаутом
+    const timeout = (ms) => new Promise((_, reject) => setTimeout(() => reject(new Error('Timeout')), ms));
     try {
-        const [guidesData, testsData, notificationsData] = await Promise.race([
+        const [guidesData, testsData] = await Promise.race([
             Promise.all([
                 loadExcel('docs/guide.xlsx'),
-                loadExcel('docs/tests.xlsx'),
-                loadExcel('docs/notifications.xlsx').catch(() => null)
+                loadExcel('docs/tests.xlsx')
             ]),
-            timeoutPromise
+            timeout(15000)
         ]);
-
         state.guides = (guidesData.guides || []).map(g => ({ ...g, id: String(g.id) }));
         state.sections = (guidesData.sections || []).map(s => ({ ...s, id: String(s.id), guide_id: String(s.guide_id) }));
         state.tests = (testsData.tests || []).map(t => ({ ...t, id: String(t.id) }));
         state.questions = (testsData.questions || []).map(q => ({ ...q, id: String(q.id), test_id: String(q.test_id) }));
+    } catch (error) {
+        console.error('Load error:', error);
+        showRetryButton();
+        return;
+    }
 
-        // Уведомления
+    // Загружаем уведомления отдельно (необязательный файл)
+    try {
+        const notificationsData = await Promise.race([
+            loadExcel('docs/notifications.xlsx'),
+            timeout(5000)
+        ]);
         if (notificationsData && notificationsData.notifications) {
             const closed = JSON.parse(localStorage.getItem('closedNotifications') || '[]');
             state.notifications = notificationsData.notifications
                 .map(n => ({ ...n, id: String(n.id) }))
-                .filter(n => n.active == 1 && !closed.includes(n.id));
+                .filter(n => {
+                    if (n.active != 1) return false;
+                    return !closed.includes(n.id);
+                });
         } else {
             state.notifications = [];
         }
-
-        state.dataLoaded = true;
-        elements.loader.style.display = 'none';
-        renderNotifications();
-        handleRouting();
-    } catch (error) {
-        console.error('Load error:', error);
-        showRetryButton();
+    } catch (err) {
+        console.warn('Notifications load skipped:', err);
+        state.notifications = [];
     }
+
+    state.dataLoaded = true;
+    elements.loader.style.display = 'none';
+    renderNotifications();
+    handleRouting();
 }
 
 function showRetryButton() {
@@ -265,10 +275,11 @@ function renderNotifications() {
 
     let html = '';
     notifications.forEach(n => {
+        const type = String(n.type || '').trim().toLowerCase();
         let bgColor = '#d1ecf1', borderColor = '#0c5460', textColor = '#0c5460'; // info
-        if (n.type === 'warning') {
+        if (type === 'warning') {
             bgColor = '#fff3cd'; borderColor = '#856404'; textColor = '#856404';
-        } else if (n.type === 'error') {
+        } else if (type === 'error') {
             bgColor = '#f8d7da'; borderColor = '#721c24'; textColor = '#721c24';
         }
         html += `
