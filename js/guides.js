@@ -3,11 +3,11 @@ import { state, elements, escapeHtml, parseMediaList, getFileName, formatExcelDa
 
 function processContent(content) {
     if (!content) return '';
-    // Заменяем кастомные теги на span с классами для стилизации
-    return content
-        .replace(/<c>/g, '<c>').replace(/<\/c>/g, '</c>')
-        .replace(/<w>/g, '<w>').replace(/<\/w>/g, '</w>')
-        .replace(/<e>/g, '<e>').replace(/<\/e>/g, '</e>');
+    // 1. Преобразуем списки
+    let html = convertLists(content);
+    // 2. Здесь можно добавить другие преобразования (например, поддержку кастомных тегов)
+    // Сейчас кастомные теги <c>, <w>, <e>, <q> уже поддерживаются стилями CSS, просто возвращаем как есть
+    return html;
 }
 
 function renderSection(section) {
@@ -38,6 +38,57 @@ function renderSection(section) {
                 </div>` : ''}
         </div>
     `;
+}
+
+function convertLists(content) {
+    if (!content) return '';
+    
+    const lines = content.split('\n');
+    const result = [];
+    let listItems = [];
+    let listType = null; // 'ul' или 'ol'
+    
+    const flushList = () => {
+        if (listItems.length > 0) {
+            const tag = listType === 'ul' ? 'ul' : 'ol';
+            result.push(`<${tag}>${listItems.join('')}</${tag}>`);
+            listItems = [];
+            listType = null;
+        }
+    };
+    
+    for (let line of lines) {
+        // Маркированный список: начинается с "- " или "* "
+        const ulMatch = line.match(/^(\s*)([-*])\s+(.*)$/);
+        // Нумерованный список: начинается с цифр и точки "1. "
+        const olMatch = line.match(/^(\s*)(\d+)\.\s+(.*)$/);
+        
+        if (ulMatch) {
+            const indent = ulMatch[1].length;
+            const text = ulMatch[3];
+            if (listType !== 'ul') {
+                flushList();
+                listType = 'ul';
+            }
+            // TODO: можно добавить поддержку вложенности по отступам, пока просто плоский список
+            listItems.push(`<li>${escapeHtml(text)}</li>`);
+        } else if (olMatch) {
+            const indent = olMatch[1].length;
+            const text = olMatch[3];
+            if (listType !== 'ol') {
+                flushList();
+                listType = 'ol';
+            }
+            listItems.push(`<li>${escapeHtml(text)}</li>`);
+        } else {
+            // Не список – сбрасываем накопленный список
+            flushList();
+            result.push(line);
+        }
+    }
+    flushList();
+    
+    return result.join('\n');
 }
 
 export function renderGuidesList() {
