@@ -499,39 +499,46 @@ body {
 
 /* Баннер установки */
 .install-banner {
-    background: #d4edda;
-    border-left: 4px solid #28a745;
-    color: #155724;
-    margin-bottom: 16px;
+    background: #e8f5e9;
+    border: 1px solid #c8e6c9;
+    border-radius: var(--radius-sm);
     padding: 16px 20px;
-    border-radius: 0 var(--radius-sm) var(--radius-sm) 0;
+    margin-bottom: 20px;
     display: flex;
     align-items: center;
     justify-content: space-between;
     flex-wrap: wrap;
-    gap: 12px;
+    gap: 16px;
+    box-shadow: 0 2px 4px rgba(0,0,0,0.05);
 }
 
 .install-banner-message {
     flex: 1;
     font-size: 1rem;
-    line-height: 1.4;
+    line-height: 1.5;
+    color: #2e7d32;
 }
 
 .install-banner-btn {
-    background: #28a745;
+    background: #43a047;
     color: white;
     border: none;
-    padding: 10px 20px;
+    padding: 10px 24px;
     border-radius: 25px;
     font-weight: 600;
+    font-size: 0.9rem;
     cursor: pointer;
     transition: background 0.2s;
     white-space: nowrap;
+    box-shadow: 0 2px 4px rgba(0,0,0,0.1);
 }
 
 .install-banner-btn:hover {
-    background: #218838;
+    background: #388e3c;
+}
+
+.install-banner-btn:active {
+    transform: scale(0.98);
 }
 
 /* Адаптив */

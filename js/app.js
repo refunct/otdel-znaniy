@@ -2,7 +2,6 @@
 import { renderGuidesList, renderSections } from './guides.js';
 import { renderTestsList, startTest } from './tests.js';
 
-// Глобальное состояние
 export const state = {
     guides: [],
     sections: [],
@@ -17,10 +16,8 @@ export const state = {
     testInProgress: false
 };
 
-// DOM элементы
 export const elements = {
     navTabs: document.getElementById('navTabs'),
-    installBanner: document.getElementById('installBanner'),
     contentContainer: document.getElementById('contentContainer'),
     notificationsContainer: document.getElementById('notificationsContainer'),
     loader: document.getElementById('loader'),
@@ -28,7 +25,6 @@ export const elements = {
     modalContent: document.getElementById('modalContent')
 };
 
-// Вспомогательные функции
 export function escapeHtml(text) {
     if (!text) return '';
     const div = document.createElement('div');
@@ -53,7 +49,6 @@ export function formatExcelDate(excelDate) {
     return date.toLocaleDateString('ru-RU');
 }
 
-// Загрузка Excel через fetch
 async function loadExcel(filename) {
     const response = await fetch(filename);
     if (!response.ok) throw new Error(`HTTP ${response.status}`);
@@ -67,7 +62,6 @@ async function loadExcel(filename) {
     return result;
 }
 
-// Загрузка всех данных с таймаутом
 async function loadData() {
     const timeout = (ms) => new Promise((_, reject) => setTimeout(() => reject(new Error('Timeout')), ms));
     try {
@@ -88,7 +82,6 @@ async function loadData() {
         return;
     }
 
-    // Уведомления (отдельно)
     try {
         const notificationsData = await Promise.race([
             loadExcel('docs/notifications.xlsx'),
@@ -136,7 +129,6 @@ function showRetryButton() {
     });
 }
 
-// Роутинг
 function parseHash() {
     const hash = window.location.hash.slice(1) || 'guides';
     const parts = hash.split('/');
@@ -170,7 +162,6 @@ function handleRouting() {
     }
 }
 
-// Модальное окно
 export function showModal(message, onConfirm, onCancel) {
     elements.modalContent.innerHTML = `
         <p>${escapeHtml(message)}</p>
@@ -196,40 +187,60 @@ export function showModal(message, onConfirm, onCancel) {
     };
 }
 
-// PWA: баннер установки (всегда виден, если поддерживается)
+// PWA: баннер установки
 let deferredPrompt = null;
 
 function setupPWA() {
-    const banner = elements.installBanner;
+    const banner = document.getElementById('installBanner');
     if (!banner) return;
+
+    // Пытаемся показать баннер сразу с инструкцией по ручной установке
+    showInstallBanner(banner, false);
 
     window.addEventListener('beforeinstallprompt', (e) => {
         e.preventDefault();
         deferredPrompt = e;
-        // Показать баннер, если ещё не показан
-        banner.style.display = 'block';
+        // Активируем кнопку
+        showInstallBanner(banner, true);
+    });
+
+    window.addEventListener('appinstalled', () => {
+        banner.style.display = 'none';
+    });
+
+    banner.addEventListener('click', (e) => {
+        if (e.target.id === 'installBannerBtn') {
+            if (deferredPrompt) {
+                deferredPrompt.prompt();
+                deferredPrompt.userChoice.then(() => {
+                    // Оставляем баннер, но меняем текст
+                    showInstallBanner(banner, false);
+                    deferredPrompt = null;
+                });
+            } else {
+                // Подсказка по ручной установке
+                alert('Чтобы установить приложение, используйте меню браузера: "Добавить на главный экран" или "Установить приложение".');
+            }
+        }
+    });
+}
+
+function showInstallBanner(banner, installAvailable) {
+    banner.style.display = 'block';
+    banner.className = 'install-banner';
+    if (installAvailable) {
         banner.innerHTML = `
             <div class="install-banner-message">📱 Установите приложение, чтобы пользоваться справочником даже без интернета.</div>
             <button class="install-banner-btn" id="installBannerBtn">Установить</button>
         `;
-        document.getElementById('installBannerBtn').addEventListener('click', () => {
-            if (deferredPrompt) {
-                deferredPrompt.prompt();
-                deferredPrompt.userChoice.then(() => {
-                    // не скрываем баннер, он остаётся
-                    deferredPrompt = null;
-                });
-            }
-        });
-    });
-
-    // Если приложение уже установлено, можно скрыть
-    window.addEventListener('appinstalled', () => {
-        banner.style.display = 'none';
-    });
+    } else {
+        banner.innerHTML = `
+            <div class="install-banner-message">📱 Добавьте сайт на главный экран для быстрого доступа. Инструкция в меню браузера.</div>
+            <button class="install-banner-btn" id="installBannerBtn">Как установить?</button>
+        `;
+    }
 }
 
-// Лайтбокс для изображений
 function openLightbox(src) {
     elements.modalContent.innerHTML = `
         <div style="position:relative; max-width:90vw; max-height:90vh;">
@@ -245,30 +256,18 @@ function openLightbox(src) {
     };
 }
 
-// Уведомления
 function renderNotifications() {
     const container = elements.notificationsContainer;
     if (!container) return;
 
-    // Сохраняем баннер установки, если он есть
+    // Собираем содержимое: баннер + уведомления
     const installBanner = document.getElementById('installBanner');
     const bannerHTML = installBanner ? installBanner.outerHTML : '';
-
-    if (!state.notifications.length) {
-        container.innerHTML = bannerHTML;
-        if (installBanner) {
-            // Восстанавливаем элемент
-            const newBanner = container.querySelector('#installBanner');
-            if (newBanner) elements.installBanner = newBanner;
-        }
-        container.style.display = 'block';
-        return;
-    }
 
     let html = bannerHTML;
     state.notifications.forEach(n => {
         const type = String(n.type || '').trim().toLowerCase();
-        let bg = '#d1ecf1', border = '#0c5460', color = '#0c5460'; // info
+        let bg = '#d1ecf1', border = '#0c5460', color = '#0c5460';
         if (type === 'warning') { bg = '#fff3cd'; border = '#856404'; color = '#856404'; }
         else if (type === 'error') { bg = '#f8d7da'; border = '#721c24'; color = '#721c24'; }
         html += `
@@ -278,11 +277,19 @@ function renderNotifications() {
             </div>
         `;
     });
+
     container.innerHTML = html;
-    // Восстанавливаем ссылку на installBanner
+
+    // Восстанавливаем работу баннера
     const newBanner = container.querySelector('#installBanner');
-    if (newBanner) elements.installBanner = newBanner;
-    else elements.installBanner = null;
+    if (newBanner) {
+        // Передаём управление setupPWA (она уже повесила обработчик на старый, но после innerHTML элемента нет в DOM)
+        // Удалим старый обработчик? Лучше пересоздать.
+        setupPWA(); // переустановит обработчики на новом баннере
+        if (deferredPrompt) {
+            showInstallBanner(newBanner, true);
+        }
+    }
     container.style.display = 'block';
 }
 
@@ -304,7 +311,6 @@ function closeNotification(id) {
     } else renderNotifications();
 }
 
-// Инициализация
 async function init() {
     setupPWA();
     window.addEventListener('hashchange', handleRouting);
@@ -320,13 +326,15 @@ async function init() {
         e.preventDefault();
         openLightbox(img.src);
     });
-    elements.notificationsContainer.addEventListener('click', (e) => {
-        const closeBtn = e.target.closest('.notification-close');
-        if (!closeBtn) return;
-        const item = closeBtn.closest('.notification-item');
-        if (!item) return;
-        closeNotification(item.dataset.id);
-    });
+    if (elements.notificationsContainer) {
+        elements.notificationsContainer.addEventListener('click', (e) => {
+            const closeBtn = e.target.closest('.notification-close');
+            if (!closeBtn) return;
+            const item = closeBtn.closest('.notification-item');
+            if (!item) return;
+            closeNotification(item.dataset.id);
+        });
+    }
     await loadData();
 }
 
