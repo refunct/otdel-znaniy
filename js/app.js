@@ -20,6 +20,7 @@ export const state = {
 // DOM элементы
 export const elements = {
     navTabs: document.getElementById('navTabs'),
+    installBtn: document.getElementById('installBtn'),
     contentContainer: document.getElementById('contentContainer'),
     notificationsContainer: document.getElementById('notificationsContainer'),
     loader: document.getElementById('loader'),
@@ -66,11 +67,9 @@ async function loadExcel(filename) {
     return result;
 }
 
-// Загрузка всех данных с таймаутом и обработкой ошибок
+// Загрузка всех данных с таймаутом
 async function loadData() {
     const timeout = (ms) => new Promise((_, reject) => setTimeout(() => reject(new Error('Timeout')), ms));
-    
-    // Основные данные (guide, tests)
     try {
         const [guidesData, testsData] = await Promise.race([
             Promise.all([
@@ -89,7 +88,7 @@ async function loadData() {
         return;
     }
 
-    // Уведомления (отдельно, необязательный файл)
+    // Уведомления (отдельно)
     try {
         const notificationsData = await Promise.race([
             loadExcel('docs/notifications.xlsx'),
@@ -99,19 +98,13 @@ async function loadData() {
             const closed = JSON.parse(localStorage.getItem('closedNotifications') || '[]');
             state.notifications = notificationsData.notifications
                 .map(row => {
-                    // Нормализация ключей: убираем пробелы, приводим к нижнему регистру
                     const normalized = {};
-                    Object.keys(row).forEach(key => {
-                        const cleanKey = key.trim().toLowerCase();
-                        normalized[cleanKey] = row[key];
-                    });
-                    // Ищем столбец типа среди нормализованных ключей
-                    const typeKey = Object.keys(normalized).find(k => k === 'type');
+                    Object.keys(row).forEach(key => { normalized[key.trim().toLowerCase()] = row[key]; });
                     return {
                         id: String(normalized.id || ''),
                         message: normalized.message || '',
                         active: normalized.active,
-                        type: typeKey ? String(normalized[typeKey]).trim().toLowerCase() : 'info'
+                        type: (normalized.type || 'info').toString().trim().toLowerCase()
                     };
                 })
                 .filter(n => n.active == 1 && !closed.includes(n.id));
@@ -203,42 +196,33 @@ export function showModal(message, onConfirm, onCancel) {
     };
 }
 
-// PWA установка
-let deferredPrompt, installPromptShown = false;
+// PWA: кнопка установки
+let deferredPrompt = null;
+
 function setupPWA() {
     window.addEventListener('beforeinstallprompt', (e) => {
         e.preventDefault();
         deferredPrompt = e;
-        if (!installPromptShown && state.dataLoaded) setTimeout(showInstallPrompt, 3000);
+        elements.installBtn.style.display = 'block';
+    });
+
+    window.addEventListener('appinstalled', () => {
+        elements.installBtn.style.display = 'none';
+        deferredPrompt = null;
+    });
+
+    elements.installBtn.addEventListener('click', async () => {
+        if (!deferredPrompt) return;
+        deferredPrompt.prompt();
+        const { outcome } = await deferredPrompt.userChoice;
+        if (outcome === 'accepted') {
+            elements.installBtn.style.display = 'none';
+        }
+        deferredPrompt = null;
     });
 }
 
-function showInstallPrompt() {
-    if (!deferredPrompt) return;
-    installPromptShown = true;
-    elements.modalContent.innerHTML = `
-        <h3 style="margin-bottom:16px;">📱 Установить приложение</h3>
-        <p>Добавьте "Отдел знаний" на главный экран для быстрого доступа</p>
-        <div class="modal-buttons">
-            <button class="modal-btn cancel" id="modalCancel">Закрыть</button>
-            <button class="modal-btn confirm" id="modalInstall">Установить</button>
-        </div>
-    `;
-    elements.modalOverlay.style.display = 'flex';
-    document.getElementById('modalCancel').onclick = () => {
-        elements.modalOverlay.style.display = 'none';
-        installPromptShown = false;
-    };
-    document.getElementById('modalInstall').onclick = async () => {
-        deferredPrompt.prompt();
-        const { outcome } = await deferredPrompt.userChoice;
-        deferredPrompt = null;
-        elements.modalOverlay.style.display = 'none';
-        if (outcome === 'accepted') installPromptShown = true;
-    };
-}
-
-// Лайтбокс
+// Лайтбокс для изображений
 function openLightbox(src) {
     elements.modalContent.innerHTML = `
         <div style="position:relative; max-width:90vw; max-height:90vh;">
