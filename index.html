@@ -13,19 +13,18 @@
     <header class="app-header" id="appHeader">
         <div class="header-top">
             <h1 class="app-title">Отдел знаний</h1>
-            <div class="header-controls">
-                <button class="install-btn" id="installBtn" style="display:none;">📱 Установить</button>
-                <nav class="nav-tabs" id="navTabs">
-                    <button class="nav-btn active" data-page="guides">Справочники</button>
-                    <button class="nav-btn" data-page="tests">Тесты</button>
-                </nav>
-            </div>
+            <nav class="nav-tabs" id="navTabs">
+                <button class="nav-btn active" data-page="guides">Справочники</button>
+                <button class="nav-btn" data-page="tests">Тесты</button>
+            </nav>
         </div>
     </header>
 
     <main class="app-main" id="appMain">
         <div class="loader" id="loader">Загрузка данных...</div>
-        <div id="notificationsContainer"></div>
+        <div id="notificationsContainer">
+            <div id="installBanner" style="display:none;"></div>
+        </div>
         <div id="contentContainer" class="content-container"></div>
     </main>
 
